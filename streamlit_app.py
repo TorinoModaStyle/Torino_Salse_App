@@ -183,12 +183,12 @@ if uploaded_file is not None:
         story.append(t_summary)
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         
-               st.success("✓ تم معالجة التقرير والخطوط والصور بنجاح تام!")
+        st.success("✓ تم معالجة التقرير والخطوط والصور بنجاح تام!")
         st.download_button(
-            label="📥 تحميل تقرير المبيعات المصفى (Download PDF Report)",
+            label="Download PDF Report",
             data=pdf_buffer.getvalue(),
             file_name="sales_analysis_report.pdf",
             mime="application/pdf"
         )
     except Exception as e:
-        st.error(f"حدث خطأ أثناء توليد المستند: {e}")
+        st.error(f"Error: {e}")
