@@ -14,14 +14,21 @@ from reportlab.pdfbase.ttfonts import TTFont
 import io
 import urllib.request
 
-# دالة مطورة لتصحيح النصوص العربية وإجبار مكتبة ReportLab على استخدام الخط العربي لمنع المربعات
+# دالة لتصحيح النصوص العربية للخط العادي
 def fix_arabic(text):
     if not isinstance(text, str):
         text = str(text)
     reshaped_text = arabic_reshaper.reshape(text)
     bidi_text = get_display(reshaped_text)
-    # تغليف النص بوسم الخط لتجبر الخلايا والعناوين على قراءته بالخط العربي الفاخر
     return f'<font name="CairoAr">{bidi_text}</font>'
+
+# دالة مخصصة لتصحيح النصوص العربية وجعلها بالخط العريض الفاخر الحقيقي
+def fix_arabic_bold(text):
+    if not isinstance(text, str):
+        text = str(text)
+    reshaped_text = arabic_reshaper.reshape(text)
+    bidi_text = get_display(reshaped_text)
+    return f'<font name="CairoArBold">{bidi_text}</font>'
 
 def add_page_number(canvas, doc):
     canvas.saveState()
@@ -41,18 +48,27 @@ uploaded_file = st.file_uploader("1️⃣ قم برفع ملف المبيعات 
 uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد الصور مضغوطاً بصيغة (Photo.zip) لإظهار صور المنتجات:", type=["zip"])
 
 if uploaded_file is not None:
-    st.info("جاري معالجة البيانات وتحميل الخطوط العربية الفاخرة... برجاء الانتظار ثواني")
+    st.info("جاري معالجة البيانات وتحميل الخطوط العربية العريضة الفاخرة... برجاء الانتظار ثواني")
     
+    # 🌟 تحميل الخط العربي العادي والعريض الأصليين من جوجل سيرفرز لضمان الفخامة التامة
     try:
-        # تحميل خط عربي فخم ومستقر سحابياً لمنع المربعات تماماً
         font_url = "https://github.com"
         font_path = "Cairo-Regular.ttf"
         if not os.path.exists(font_path):
             urllib.request.urlretrieve(font_url, font_path)
         pdfmetrics.registerFont(TTFont('CairoAr', font_path))
-        font_name = 'CairoAr'
+        
+        bold_url = "https://github.com"
+        bold_path = "Cairo-Bold.ttf"
+        if not os.path.exists(bold_path):
+            urllib.request.urlretrieve(bold_url, bold_path)
+        pdfmetrics.registerFont(TTFont('CairoArBold', bold_path))
+        
+        font_main = 'CairoAr'
+        font_bold = 'CairoArBold'
     except:
-        font_name = 'Helvetica'
+        font_main = 'Helvetica'
+        font_bold = 'Helvetica-Bold'
 
     extracted_photos = {}
     if uploaded_zip is not None:
@@ -117,32 +133,33 @@ if uploaded_file is not None:
         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
         
-        title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
-        subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
-        section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=14, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
-        cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
-        header_style = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1, textColor=colors.white)
+        # ربط التنسيقات بالخط العريض الجديد وبدون أي تعارض
+        title_style = ParagraphStyle('CompTitle', fontName=font_bold, fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
+        subtitle_style = ParagraphStyle('SubTitle', fontName=font_main, fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
+        section_style = ParagraphStyle('SecTitle', fontName=font_main, fontSize=14, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
+        cell_style = ParagraphStyle('Cell', fontName=font_main, fontSize=9, leading=12, alignment=1)
+        header_style = ParagraphStyle('HeaderCell', fontName=font_bold, fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
         full_title_text = f"{report_title_ar} / {report_title_en}"
         
         story.append(Paragraph("Torino Moda Style", title_style))
-        story.append(Paragraph(fix_arabic(full_title_text), subtitle_style))
+        story.append(Paragraph(fix_arabic_bold(full_title_text), subtitle_style))
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
         
         table_section_title = "قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"
-        story.append(Paragraph(fix_arabic(table_section_title), section_style))
+        story.append(Paragraph(fix_arabic_bold(table_section_title), section_style))
 
         summary_headers = [
-            Paragraph("<b>Photo</b>", header_style),
-            Paragraph("<b>Item</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('السعر الأساسي')}<br/>(Base Price)</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('إجمالي المبيعات')}<br/>(Total Sold)</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('إجمالي المرتجعات')}<br/>(Total Ret)</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('صافي المبيعات')}<br/>(Net Sales)</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('الرصيد الحالي')}<br/>(Current Stock)</b>", header_style)
+            Paragraph("Photo", header_style),
+            Paragraph("Item", header_style),
+            Paragraph(f"{fix_arabic_bold('السعر الأساسي')}<br/>(Base Price)", header_style),
+            Paragraph(f"{fix_arabic_bold('إجمالي المبيعات')}<br/>(Total Sold)", header_style),
+            Paragraph(f"{fix_arabic_bold('إجمالي المرتجعات')}<br/>(Total Ret)", header_style),
+            Paragraph(f"{fix_arabic_bold('صافي المبيعات')}<br/>(Net Sales)", header_style),
+            Paragraph(f"{fix_arabic_bold('الرصيد الحالي')}<br/>(Current Stock)", header_style)
         ]
         
-        col_widths = [55, 95, 65, 65, 65, 65, 65]
+        col_widths =
         summary_table_data = [summary_headers]
         
         for idx, row in top_30.iterrows():
@@ -172,18 +189,3 @@ if uploaded_file is not None:
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')]),
-            ('TOPPADDING', (0,1), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,1), (-1,-1), 8),
-        ]))
-        story.append(t_summary)
-        doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
-        st.success("✓ تم معالجة التقرير والخطوط والصور بنجاح تام!")
-        st.download_button(
-            label="Download PDF Report",
-            data=pdf_buffer.getvalue(),
-            file_name="sales_analysis_report.pdf",
-            mime="application/pdf"
-        )
-    except Exception as e:
-        st.error(f"Error: {e}")
