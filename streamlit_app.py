@@ -189,3 +189,15 @@ if uploaded_file is not None:
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')])
         ]))
+        story.append(t_summary)
+        doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
+        
+        st.success("✓ تم معالجة التقرير والخطوط والصور بنجاح تام!")
+        st.download_button(
+            label="Download PDF Report",
+            data=pdf_buffer.getvalue(),
+            file_name="sales_analysis_report.pdf",
+            mime="application/pdf"
+        )
+    except Exception as e:
+        st.error(f"Error: {e}")
