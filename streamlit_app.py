@@ -182,7 +182,6 @@ if uploaded_file is not None:
         ]))
         story.append(t_summary)
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
-        
         st.success("✓ تم معالجة التقرير والخطوط والصور بنجاح تام!")
         st.download_button(
             label="Download PDF Report",
@@ -190,5 +189,5 @@ if uploaded_file is not None:
             file_name="sales_analysis_report.pdf",
             mime="application/pdf"
         )
-except Exception as e:
-    st.error(f"Error: {e}")
+    except Exception as e:
+        st.error(f"Error: {e}")
