@@ -51,7 +51,7 @@ if uploaded_file is not None:
         pdfmetrics.registerFont(TTFont('CairoAr', font_path))
         font_name = 'CairoAr'
     except:
-        font_name = 'Helvetica' # خط احتياطي في حال انقطاع السيرفر
+        font_name = 'Helvetica'
 
     # معالجة ملفات الصور المضغوطة إن وجدت في الذاكرة السحابية المؤقتة الآمنة
     extracted_photos = {}
@@ -81,10 +81,10 @@ if uploaded_file is not None:
         if months_diff <= 0: months_diff = 1
         
         if months_diff >= 12:
-            report_title_ar = f"تقرير أفضل مبيع السنوي المصفى"
+            report_title_ar = "تقرير أفضل مبيع السنوي المصفى"
             report_title_en = "Top Selling Performance Report - Annual"
         elif months_diff == 1:
-            report_title_ar = f"تقرير أفضل مبيع لشهر واحد المصفى"
+            report_title_ar = "تقرير أفضل مبيع لشهر واحد المصفى"
             report_title_en = "Top Selling Performance Report - 1 Month"
         else:
             report_title_ar = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى"
@@ -115,44 +115,44 @@ if uploaded_file is not None:
 
         top_30 = agg_df.sort_values(by='صافي المبيعات', ascending=False).head(30)
 
-        # معالجة الـ PDF في الذاكرة للبث المباشر
         pdf_buffer = io.BytesIO()
         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
         
-        # ضبط التنسيقات الفاخرة لـ Torino Moda Style مع ربطها بالخط الجديد الصالح للعربية
+        # 🌟 ضبط التنسيقات الفاخرة لـ Torino Moda Style مع ربط العنوان والجدول بالخط الجديد بشكل كامل لمنع المربعات
         title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
         subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
         section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=14, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
         cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
         header_style = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
-        # دمج النصوص العربية والإنجليزية بشكل ديناميكي منسق
         full_title_text = f"{report_title_ar} / {report_title_en}"
         
         story.append(Paragraph("Torino Moda Style", title_style))
         story.append(Paragraph(fix_arabic(full_title_text), subtitle_style))
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
-        story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
+        
+        # إصلاح عنوان الجدول العربي ليظهر صحيحاً بدون مربعات
+        table_section_title = "قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"
+        story.append(Paragraph(fix_arabic(table_section_title), section_style))
 
         summary_headers = [
             Paragraph("<b>Photo</b>", header_style),
             Paragraph("<b>Item</b>", header_style),
-            Paragraph("<b>Base Price</b>", header_style),
-            Paragraph("<b>Total Sold</b>", header_style),
-            Paragraph("<b>Total Ret</b>", header_style),
-            Paragraph("<b>Net Sales</b>", header_style),
-            Paragraph("<b>Current Stock</b>", header_style)
+            Paragraph(f"<b>{fix_arabic('السعر الأساسي')}<br/>(Base Price)</b>", header_style),
+            Paragraph(f"<b>{fix_arabic('إجمالي المبيعات')}<br/>(Total Sold)</b>", header_style),
+            Paragraph(f"<b>{fix_arabic('إجمالي المرتجعات')}<br/>(Total Ret)</b>", header_style),
+            Paragraph(f"<b>{fix_arabic('صافي المبيعات')}<br/>(Net Sales)</b>", header_style),
+            Paragraph(f"<b>{fix_arabic('الرصيد الحالي')}<br/>(Current Stock)</b>", header_style)
         ]
         
-        col_widths = [60, 100, 70, 80, 80, 75, 75]
+        col_widths = [65, 85, 80, 80, 80, 75, 75]
         summary_table_data = [summary_headers]
         
         for idx, row in top_30.iterrows():
             mat_name = str(row['اسم المادة']).strip()
-            img_flowable = Paragraph("", cell_style) # فارغة افتراضياً إذا لم يتم جلب الصورة
+            img_flowable = Paragraph("", cell_style)
             
-            # فحص وجود بايتات الصورة المرفوعة داخل ملف الـ zip في الذاكرة
             if mat_name in extracted_photos:
                 try:
                     img_data = io.BytesIO(extracted_photos[mat_name])
@@ -185,10 +185,3 @@ if uploaded_file is not None:
         
         st.success("✓ تم معالجة التقرير والخطوط والصور بنجاح تام!")
         st.download_button(
-            label="Download PDF Report",
-            data=pdf_buffer.getvalue(),
-            file_name="sales_analysis_report.pdf",
-            mime="application/pdf"
-        )
-    except Exception as e:
-        st.error(f"Error: {e}")
