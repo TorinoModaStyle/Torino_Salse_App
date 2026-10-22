@@ -14,12 +14,14 @@ from reportlab.pdfbase.ttfonts import TTFont
 import io
 import urllib.request
 
-# دالة تصحيح النصوص العربية لتبدو بشكل صحيح ومنع الحروف المقلوبة
+# دالة مطورة لتصحيح النصوص العربية وإجبار مكتبة ReportLab على استخدام الخط العربي لمنع المربعات
 def fix_arabic(text):
     if not isinstance(text, str):
         text = str(text)
     reshaped_text = arabic_reshaper.reshape(text)
-    return get_display(reshaped_text)
+    bidi_text = get_display(reshaped_text)
+    # تغليف النص بوسم الخط لتجبر الخلايا والعناوين على قراءته بالخط العربي الفاخر
+    return f'<font name="CairoAr">{bidi_text}</font>'
 
 def add_page_number(canvas, doc):
     canvas.saveState()
@@ -35,7 +37,6 @@ st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</
 st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل المبيعات الذكي وتوليد التقارير المصورة تلقائياً</h4>", unsafe_allow_html=True)
 st.write("---")
 
-# خطوة رفع الملفات من قبل الموظف بكل سهولة
 uploaded_file = st.file_uploader("1️⃣ قم برفع ملف المبيعات (products.xlsx):", type=["xlsx"])
 uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد الصور مضغوطاً بصيغة (Photo.zip) لإظهار صور المنتجات:", type=["zip"])
 
@@ -53,7 +54,6 @@ if uploaded_file is not None:
     except:
         font_name = 'Helvetica'
 
-    # معالجة ملفات الصور المضغوطة إن وجدت في الذاكرة السحابية المؤقتة الآمنة
     extracted_photos = {}
     if uploaded_zip is not None:
         try:
@@ -72,7 +72,6 @@ if uploaded_file is not None:
                       'سعر المرتجع', 'سعر المبيع', 'اسم المادة الأساسي', 'السعر الأساسي',
                       'مادة الرصيد', 'رصيد المادة']
         
-        # تحديد المسار الزمني ديناميكياً
         df['تاريخ الفاتورة'] = pd.to_datetime(df['تاريخ الفاتورة'])
         min_date = df['تاريخ الفاتورة'].min()
         max_date = df['تاريخ الفاتورة'].max()
@@ -90,7 +89,6 @@ if uploaded_file is not None:
             report_title_ar = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى"
             report_title_en = f"Top Selling Performance Report - Last {months_diff} Months"
 
-        # تنظيف وتحويل البيانات
         df['كمية المبيع'] = pd.to_numeric(df['كمية المبيع'], errors='coerce').fillna(0)
         df['كمية المرتجع'] = pd.to_numeric(df['كمية المرتجع'], errors='coerce').fillna(0)
         df['سعر المبيع'] = pd.to_numeric(df['سعر المبيع'], errors='coerce').fillna(0)
@@ -119,7 +117,6 @@ if uploaded_file is not None:
         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
         
-        # 🌟 ضبط التنسيقات الفاخرة لـ Torino Moda Style مع ربط العنوان والجدول بالخط الجديد بشكل كامل لمنع المربعات
         title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
         subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
         section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=14, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
@@ -132,7 +129,6 @@ if uploaded_file is not None:
         story.append(Paragraph(fix_arabic(full_title_text), subtitle_style))
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
         
-        # إصلاح عنوان الجدول العربي ليظهر صحيحاً بدون مربعات
         table_section_title = "قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"
         story.append(Paragraph(fix_arabic(table_section_title), section_style))
 
@@ -146,7 +142,7 @@ if uploaded_file is not None:
             Paragraph(f"<b>{fix_arabic('الرصيد الحالي')}<br/>(Current Stock)</b>", header_style)
         ]
         
-        col_widths = [65, 85, 80, 80, 80, 75, 75]
+        col_widths = [55, 95, 65, 65, 65, 65, 65]
         summary_table_data = [summary_headers]
         
         for idx, row in top_30.iterrows():
@@ -182,6 +178,7 @@ if uploaded_file is not None:
         ]))
         story.append(t_summary)
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
+        
         st.success("✓ تم معالجة التقرير والخطوط والصور بنجاح تام!")
         st.download_button(
             label="Download PDF Report",
@@ -190,4 +187,3 @@ if uploaded_file is not None:
             mime="application/pdf"
         )
     except Exception as e:
-        st.error(f"Error: {e}")
