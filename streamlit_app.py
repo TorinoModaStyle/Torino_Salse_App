@@ -9,26 +9,13 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable, Image
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 import io
-import urllib.request
 
-# دالة لتصحيح الخط العربي العادي للجداول باستخدام خط Cairo
-def fix_arabic_table(text):
+def fix_arabic(text):
     if not isinstance(text, str):
         text = str(text)
     reshaped_text = arabic_reshaper.reshape(text)
-    bidi_text = get_display(reshaped_text)
-    return f'<font name="CairoFont">{bidi_text}</font>'
-
-# دالة لتصحيح الخط العربي العريض للعنوان الرئيسي باستخدام خط Amiri الفخم
-def fix_arabic_header(text):
-    if not isinstance(text, str):
-        text = str(text)
-    reshaped_text = arabic_reshaper.reshape(text)
-    bidi_text = get_display(reshaped_text)
-    return f'<font name="AmiriFont">{bidi_text}</font>'
+    return get_display(reshaped_text)
 
 def add_page_number(canvas, doc):
     canvas.saveState()
@@ -48,18 +35,8 @@ uploaded_file = st.file_uploader("1️⃣ قم برفع ملف المبيعات 
 uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد الصور مضغوطاً بصيغة (Photo.zip) لإظهار صور المنتجات:", type=["zip"])
 
 if uploaded_file is not None:
-    st.info("جاري تهيئة البيانات وتحميل محركات الخطوط العربية الفاخرة سحابياً... برجاء الانتظار ثواني")
+    st.info("جاري معالجة البيانات وتوليد التقرير السحابي... برجاء الانتظار ثواني")
     
-    # تحميل خط Cairo للجداول وخط Amiri للترويسات لضمان أعلى فخامة
-    try:
-        urllib.request.urlretrieve("https://github.com", "Cairo-Regular.ttf")
-        pdfmetrics.registerFont(TTFont('CairoFont', 'Cairo-Regular.ttf'))
-        
-        urllib.request.urlretrieve("https://github.com", "Amiri-Bold.ttf")
-        pdfmetrics.registerFont(TTFont('AmiriFont', 'Amiri-Bold.ttf'))
-    except Exception as e:
-        st.warning(f"ملاحظة حول الخطوط: {e}")
-
     extracted_photos = {}
     if uploaded_zip is not None:
         try:
@@ -120,7 +97,7 @@ if uploaded_file is not None:
         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
         
-        # ترويسات وتنسيقات الهوية الكحلية والذهبية الرسمية
+        # 🌟 استخدام الخط القياسي المدمج الثابت في سيرفرات السحاب مع معالجة النصوص بشكل مرن لمنع التوقف والأخطاء تماماً
         title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
         subtitle_style = ParagraphStyle('SubTitle', fontName='Helvetica', fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
         section_style = ParagraphStyle('SecTitle', fontName='Helvetica', fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
@@ -128,27 +105,21 @@ if uploaded_file is not None:
         header_style = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
         story.append(Paragraph("Torino Moda Style", title_style))
-        
-        # دمج خط Amiri الفخم الصريح للعنوان العلوي
-        full_title_text = f"{fix_arabic_header(report_title_ar)} <font name='Helvetica'>/ {report_title_en}</font>"
-        story.append(Paragraph(full_title_text, subtitle_style))
+        story.append(Paragraph(f"{fix_arabic(report_title_ar)} / {report_title_en}", subtitle_style))
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
-        
-        table_section_text = f"{fix_arabic_header('قائمة أفضل 30 مادة مع الصور والرصيد الحالي')} <font name='Helvetica' size='11' color='#718096'>(Top 30 Net Performance, Stock & Photos)</font>"
-        story.append(Paragraph(table_section_text, section_style))
+        story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
 
-        # إجبار الترويسات الكحلية على استخدام خط كابرو العربي الفاخر
         summary_headers = [
             Paragraph("Photo", header_style),
             Paragraph("Item", header_style),
-            Paragraph(f"{fix_arabic_table('السعر الأساسي')}<br/><font size='7'>(Base Price)</font>", header_style),
-            Paragraph(f"{fix_arabic_table('إجمالي المبيعات')}<br/><font size='7'>(Total Sold)</font>", header_style),
-            Paragraph(f"{fix_arabic_table('إجمالي المرتجعات')}<br/><font size='7'>(Total Ret)</font>", header_style),
-            Paragraph(f"{fix_arabic_table('صافي المبيعات')}<br/><font size='7'>(Net Sales)</font>", header_style),
-            Paragraph(f"{fix_arabic_table('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
+            Paragraph(f"{fix_arabic('السعر الأساسي')}<br/><font size='7'>(Base Price)</font>", header_style),
+            Paragraph(f"{fix_arabic('إجمالي المبيعات')}<br/><font size='7'>(Total Sold)</font>", header_style),
+            Paragraph(f"{fix_arabic('إجمالي المرتجعات')}<br/><font size='7'>(Total Ret)</font>", header_style),
+            Paragraph(f"{fix_arabic('صافي المبيعات')}<br/><font size='7'>(Net Sales)</font>", header_style),
+            Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        col_widths = [45, 100, 75, 80, 80, 80, 80]
+        col_widths = [50, 100, 70, 80, 80, 80, 100]
         summary_table_data = [summary_headers]
         
         for idx, row in top_30.iterrows():
