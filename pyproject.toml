@@ -6,7 +6,14 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "streamlit>=1.61.1",
+    "pandas",
+    "openpyxl",
+    "reportlab",
+    "arabic-reshaper",
+    "python-bidi",
+    "pillow"
 ]
+
 
 [tool.uv]
 package = false
