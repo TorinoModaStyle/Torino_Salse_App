@@ -3,7 +3,8 @@ name = "blank-app-template"
 version = "0.1.0"
 description = "A simple Streamlit app template."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
+
 dependencies = [
     "streamlit>=1.61.1",
     "pandas",
@@ -13,7 +14,6 @@ dependencies = [
     "python-bidi",
     "pillow"
 ]
-
 
 [tool.uv]
 package = false
