@@ -7,28 +7,18 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable, Image
-from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import io
-import urllib.request
 
-# دالة لتصحيح النصوص العربية للخط العادي
+# الدالة الأصلية الدقيقة الخاصة بك لتصحيح الخط العربي لسطح المكتب
 def fix_arabic(text):
     if not isinstance(text, str):
         text = str(text)
     reshaped_text = arabic_reshaper.reshape(text)
-    bidi_text = get_display(reshaped_text)
-    return f'<font name="CairoAr">{bidi_text}</font>'
-
-# دالة مخصصة لتصحيح النصوص العربية وجعلها بالخط العريض الفاخر الحقيقي
-def fix_arabic_bold(text):
-    if not isinstance(text, str):
-        text = str(text)
-    reshaped_text = arabic_reshaper.reshape(text)
-    bidi_text = get_display(reshaped_text)
-    return f'<font name="CairoArBold">{bidi_text}</font>'
+    return get_display(reshaped_text)
 
 def add_page_number(canvas, doc):
     canvas.saveState()
@@ -48,27 +38,16 @@ uploaded_file = st.file_uploader("1️⃣ قم برفع ملف المبيعات 
 uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد الصور مضغوطاً بصيغة (Photo.zip) لإظهار صور المنتجات:", type=["zip"])
 
 if uploaded_file is not None:
-    st.info("جاري معالجة البيانات وتحميل الخطوط العربية العريضة الفاخرة... برجاء الانتظار ثواني")
+    st.info("جاري معالجة البيانات وتوليد التقرير القياسي... برجاء الانتظار ثواني")
     
+    # محاولة تسجيل خط ويندوز الأساسي إذا توفر في بيئة التشغيل، وإلا يعتمد النظام الخط الافتراضي المستقر
     try:
-        font_url = "https://github.com"
-        font_path = "Cairo-Regular.ttf"
-        if not os.path.exists(font_path):
-            urllib.request.urlretrieve(font_url, font_path)
-        pdfmetrics.registerFont(TTFont('CairoAr', font_path))
-        
-        bold_url = "https://github.com"
-        bold_path = "Cairo-Bold.ttf"
-        if not os.path.exists(bold_path):
-            urllib.request.urlretrieve(bold_url, bold_path)
-        pdfmetrics.registerFont(TTFont('CairoArBold', bold_path))
-        
-        font_main = 'CairoAr'
-        font_bold = 'CairoArBold'
+        pdfmetrics.registerFont(TTFont('ArialAr', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
+        font_name = 'ArialAr'
     except:
-        font_main = 'Helvetica'
-        font_bold = 'Helvetica-Bold'
+        font_name = 'Helvetica'
 
+    # معالجة قراءة الصور السحابية الآمنة من ملف الـ ZIP المرفوع من قبل المستخدم
     extracted_photos = {}
     if uploaded_zip is not None:
         try:
@@ -95,14 +74,11 @@ if uploaded_file is not None:
         if months_diff <= 0: months_diff = 1
         
         if months_diff >= 12:
-            report_title_ar = "تقرير أفضل مبيع السنوي المصفى"
-            report_title_en = "Top Selling Performance Report - Annual"
+            report_title_ar, report_title_en = "تقرير أفضل مبيع السنوي المصفى", "Top Selling Performance Report - Annual"
         elif months_diff == 1:
-            report_title_ar = "تقرير أفضل مبيع لشهر واحد المصفى"
-            report_title_en = "Top Selling Performance Report - 1 Month"
+            report_title_ar, report_title_en = "تقرير أفضل مبيع لشهر واحد المصفى", "Top Selling Performance Report - 1 Month"
         else:
-            report_title_ar = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى"
-            report_title_en = f"Top Selling Performance Report - Last {months_diff} Months"
+            report_title_ar, report_title_en = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى", f"Top Selling Performance Report - Last {months_diff} Months"
 
         df['كمية المبيع'] = pd.to_numeric(df['كمية المبيع'], errors='coerce').fillna(0)
         df['كمية المرتجع'] = pd.to_numeric(df['كمية المرتجع'], errors='coerce').fillna(0)
@@ -132,32 +108,29 @@ if uploaded_file is not None:
         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
         
-        title_style = ParagraphStyle('CompTitle', fontName=font_bold, fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
-        subtitle_style = ParagraphStyle('SubTitle', fontName=font_main, fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
-        section_style = ParagraphStyle('SecTitle', fontName=font_main, fontSize=14, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
-        cell_style = ParagraphStyle('Cell', fontName=font_main, fontSize=9, leading=12, alignment=1)
-        header_style = ParagraphStyle('HeaderCell', fontName=font_main, fontSize=9, leading=12, alignment=1, textColor=colors.white)
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle('CompTitle', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
+        subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
+        section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=14, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
+        cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
+        header_style = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
-        full_title_text = f"{report_title_ar} / {report_title_en}"
-        
         story.append(Paragraph("Torino Moda Style", title_style))
-        story.append(Paragraph(fix_arabic_bold(full_title_text), subtitle_style))
+        story.append(Paragraph(f"{fix_arabic(report_title_ar)} / {report_title_en}", subtitle_style))
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
-        
-        table_section_title = "قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"
-        story.append(Paragraph(fix_arabic_bold(table_section_title), section_style))
+        story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
 
         summary_headers = [
             Paragraph("Photo", header_style),
             Paragraph("Item", header_style),
-            Paragraph(f"{fix_arabic_bold('السعر الأساسي')}<br/>(Base Price)", header_style),
-            Paragraph(f"{fix_arabic_bold('إجمالي المبيعات')}<br/>(Total Sold)", header_style),
-            Paragraph(f"{fix_arabic_bold('إجمالي المرتجعات')}<br/>(Total Ret)", header_style),
-            Paragraph(f"{fix_arabic_bold('صافي المبيعات')}<br/>(Net Sales)", header_style),
-            Paragraph(f"{fix_arabic_bold('الرصيد الحالي')}<br/>(Current Stock)", header_style)
+            Paragraph(f"{fix_arabic('السعر الأساسي')}<br/>(Base Price)", header_style),
+            Paragraph(f"{fix_arabic('إجمالي المبيعات')}<br/>(Total Sold)", header_style),
+            Paragraph(f"{fix_arabic('إجمالي المرتجعات')}<br/>(Total Ret)", header_style),
+            Paragraph(f"{fix_arabic('صافي المبيعات')}<br/>(Net Sales)", header_style),
+            Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/>(Current Stock)", header_style)
         ]
         
-        col_widths = [60, 95, 65, 65, 65, 65, 65]
+        col_widths = [50, 110, 65, 65, 65, 65, 115]
         summary_table_data = [summary_headers]
         
         for idx, row in top_30.iterrows():
@@ -187,12 +160,14 @@ if uploaded_file is not None:
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')])
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')]),
+            ('TOPPADDING', (0,1), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,1), (-1,-1), 8)
         ]))
         story.append(t_summary)
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         
-        st.success("✓ تم معالجة التقرير والخطوط والصور بنجاح تام!")
+        st.success("✓ تم معالجة التقرير والبيانات بنجاح تام!")
         st.download_button(
             label="Download PDF Report",
             data=pdf_buffer.getvalue(),
