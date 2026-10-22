@@ -50,7 +50,6 @@ uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد 
 if uploaded_file is not None:
     st.info("جاري معالجة البيانات وتحميل الخطوط العربية العريضة الفاخرة... برجاء الانتظار ثواني")
     
-    # 🌟 تحميل الخط العربي العادي والعريض الأصليين من جوجل سيرفرز لضمان الفخامة التامة
     try:
         font_url = "https://github.com"
         font_path = "Cairo-Regular.ttf"
@@ -133,12 +132,11 @@ if uploaded_file is not None:
         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
         
-        # ربط التنسيقات بالخط العريض الجديد وبدون أي تعارض
         title_style = ParagraphStyle('CompTitle', fontName=font_bold, fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
         subtitle_style = ParagraphStyle('SubTitle', fontName=font_main, fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
         section_style = ParagraphStyle('SecTitle', fontName=font_main, fontSize=14, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
         cell_style = ParagraphStyle('Cell', fontName=font_main, fontSize=9, leading=12, alignment=1)
-        header_style = ParagraphStyle('HeaderCell', fontName=font_bold, fontSize=9, leading=12, alignment=1, textColor=colors.white)
+        header_style = ParagraphStyle('HeaderCell', fontName=font_main, fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
         full_title_text = f"{report_title_ar} / {report_title_en}"
         
@@ -159,7 +157,8 @@ if uploaded_file is not None:
             Paragraph(f"{fix_arabic_bold('الرصيد الحالي')}<br/>(Current Stock)", header_style)
         ]
         
-        col_widths =
+        # 🌟 تم إصلاح الأقواس الفارغة هنا وتغذية الأبعاد السبعة بالنقاط الكاملة 540 بدقة
+        col_widths = [60, 90, 75, 80, 80, 75, 80]
         summary_table_data = [summary_headers]
         
         for idx, row in top_30.iterrows():
@@ -189,3 +188,4 @@ if uploaded_file is not None:
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')]),
