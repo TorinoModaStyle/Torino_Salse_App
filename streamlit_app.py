@@ -9,6 +9,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable, Image
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 import io
 
 def fix_arabic(text):
@@ -35,8 +37,23 @@ uploaded_file = st.file_uploader("1️⃣ قم برفع ملف المبيعات 
 uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد الصور مضغوطاً بصيغة (Photo.zip) لإظهار صور المنتجات:", type=["zip"])
 
 if uploaded_file is not None:
-    st.info("جاري معالجة البيانات وتوليد التقرير السحابي... برجاء الانتظار ثواني")
+    st.info("جاري معالجة البيانات وتوليد التقرير السحابي القياسي... برجاء الانتظار ثواني")
     
+    # محاولة قراءة الخط العربي الافتراضي المتوفر في خوادم لينكس لحل مشكلة المربعات للأبد
+    font_name = 'Helvetica'
+    for possible_path in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "/usr/share/fonts/X11/TTF/DejaVuSans.ttf"
+    ]:
+        if os.path.exists(possible_path):
+            try:
+                pdfmetrics.registerFont(TTFont('CloudArabic', possible_path))
+                font_name = 'CloudArabic'
+                break
+            except:
+                pass
+
     extracted_photos = {}
     if uploaded_zip is not None:
         try:
@@ -97,11 +114,10 @@ if uploaded_file is not None:
         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
         
-        # 🌟 استخدام الخط القياسي المدمج الثابت في سيرفرات السحاب مع معالجة النصوص بشكل مرن لمنع التوقف والأخطاء تماماً
         title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
-        subtitle_style = ParagraphStyle('SubTitle', fontName='Helvetica', fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
-        section_style = ParagraphStyle('SecTitle', fontName='Helvetica', fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
-        cell_style = ParagraphStyle('Cell', fontName='Helvetica', fontSize=9, leading=12, alignment=1)
+        subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
+        section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
+        cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
         header_style = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
         story.append(Paragraph("Torino Moda Style", title_style))
@@ -119,7 +135,7 @@ if uploaded_file is not None:
             Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        col_widths = [50, 100, 70, 80, 80, 80, 100]
+        col_widths = [55, 80, 80, 80, 80, 80, 85]
         summary_table_data = [summary_headers]
         
         for idx, row in top_30.iterrows():
@@ -158,7 +174,7 @@ if uploaded_file is not None:
         
         st.success("✓ تم معالجة وتصحيح التقرير سحابياً بنجاح تام!")
         st.download_button(
-            label="📥 تحميل تقرير Torino Moda Style المكتمل بالكامل",
+            label="Download PDF Report",
             data=pdf_buffer.getvalue(),
             file_name="sales_analysis_report.pdf",
             mime="application/pdf"
