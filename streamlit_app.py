@@ -40,12 +40,19 @@ uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد 
 if uploaded_file is not None:
     st.info("جاري معالجة البيانات وتوليد التقرير القياسي... برجاء الانتظار ثواني")
     
-    # محاولة تسجيل خط ويندوز الأساسي إذا توفر في بيئة التشغيل، وإلا يعتمد النظام الخط الافتراضي المستقر
-    try:
-        pdfmetrics.registerFont(TTFont('ArialAr', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
-        font_name = 'ArialAr'
-    except:
-        font_name = 'Helvetica'
+    # تفعيل الخط السحابي الآمن والافتراضي المتوفر في سيرفرات لينكس ليدعم العربية بنجاح
+    font_name = 'Helvetica'
+    for possible_path in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf"
+    ]:
+        if os.path.exists(possible_path):
+            try:
+                pdfmetrics.registerFont(TTFont('CloudArabic', possible_path))
+                font_name = 'CloudArabic'
+                break
+            except:
+                pass
 
     # معالجة قراءة الصور السحابية الآمنة من ملف الـ ZIP المرفوع من قبل المستخدم
     extracted_photos = {}
@@ -110,8 +117,8 @@ if uploaded_file is not None:
         
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle('CompTitle', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
-        subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
-        section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=14, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
+        subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
+        section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
         cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
         header_style = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
