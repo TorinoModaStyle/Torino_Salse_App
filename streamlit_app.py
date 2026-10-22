@@ -157,8 +157,7 @@ if uploaded_file is not None:
             Paragraph(f"{fix_arabic_bold('الرصيد الحالي')}<br/>(Current Stock)", header_style)
         ]
         
-        # 🌟 تم إصلاح الأقواس الفارغة هنا وتغذية الأبعاد السبعة بالنقاط الكاملة 540 بدقة
-        col_widths = [60, 90, 75, 80, 80, 75, 80]
+        col_widths = [60, 90, 65, 65, 65, 65, 125]
         summary_table_data = [summary_headers]
         
         for idx, row in top_30.iterrows():
@@ -188,4 +187,3 @@ if uploaded_file is not None:
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')]),
