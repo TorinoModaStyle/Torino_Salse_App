@@ -1,4 +1,4 @@
-# inline_dependencies = ["pandas", "openpyxl", "reportlab", "arabic-reshaper", "python-bidi", "pillow"]
+# install: pandas openpyxl reportlab arabic-reshaper python-bidi pillow
 import streamlit as st
 import pandas as pd
 import os
@@ -29,7 +29,7 @@ def add_page_number(canvas, doc):
 
 st.set_page_config(page_title="Torino Moda Style - Analytics", page_icon="👔", layout="centered")
 st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
-st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل Mبيعات الذكي وتوليد التقارير تلقائياً</h4>", unsafe_allow_html=True)
+st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل المبيعات الذكي وتوليد التقارير تلقائياً</h4>", unsafe_allow_html=True)
 st.write("---")
 
 uploaded_file = st.file_uploader("قم بسحب وإفلات ملف المبيعات (products.xlsx) هنا:", type=["xlsx"])
@@ -88,7 +88,6 @@ if uploaded_file is not None:
         pdf_buffer = io.BytesIO()
         font_path = os.path.join(os.environ['WINDIR'], 'Fonts', 'arial.ttf') if 'WINDIR' in os.environ else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
         
-        # تجنب توقف السيرفرات السحابية عند عدم توفر خط ويندوز الافتراضي
         try:
             pdfmetrics.registerFont(TTFont('ArialAr', font_path))
         except:
