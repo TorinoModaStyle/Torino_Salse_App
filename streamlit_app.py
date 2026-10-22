@@ -185,3 +185,10 @@ if uploaded_file is not None:
         
         st.success("✓ تم معالجة التقرير والخطوط والصور بنجاح تام!")
         st.download_button(
+            label="Download PDF Report",
+            data=pdf_buffer.getvalue(),
+            file_name="sales_analysis_report.pdf",
+            mime="application/pdf"
+        )
+except Exception as e:
+    st.error(f"Error: {e}")
