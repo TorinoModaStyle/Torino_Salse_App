@@ -15,7 +15,7 @@ import io
 import base64
 from PIL import Image as PILImage
 
-# 🌟 خط كابرو العربي الفاخر محقون نصياً داخل الكود ليظهر العربي أوتوماتيكياً في السيرفر بدون مربعات
+# الخط العربي الفاخر محقون نصياً داخل الكود ليظهر العربي أوتوماتيكياً في السيرفر بدون مربعات
 CAIRO_FONT_BASE64 = (
     "AAEAAAASAQAABAAwR0RFRgBJAEgAAAEsAAAAKEdQT1M6wD68AAAFDAAADBpHOVRM"
     "IEMwNQAADbQAAAAgY21hcD0QA78AAAGYAAAAsGNmcmFpT09XAAAL0AAAAGZnbHlm"
@@ -60,7 +60,7 @@ CAIRO_FONT_BASE64 = (
     "EQEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEAAPsAeP/6BBwE"
     "MAALABMAHAAsADQARABPAFgAXwBmAG0AdAB7AIIAiQCPAGwAYwBVAF0AMwA7AEQA"
     "ALMWFhUUBiImNTQ2NxcWNxEUBiImNTQ2NwsiIiIiIiIiIiIiIiIiIiIiIiIiIiIi"
-    "Il9NTQ0BERANDRElu00NAREQDQ0REU1NDQEREA0NERFNTQ0BERANDRENEQEDAf8B"
+    "Il9NTQ0BERANDRElU00NAREQDQ0REU1NDQEREA0NERFNTQ0BERANDRENEQEDAf8B"
     "Af8BAwEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEAAPsAeP/6BBwEMAALABMA"
     "HAAsADQARABPAFgAXwBmAG0AdAB7AIIAiQCPAGwAYwBVAF0AMwA7AEQAALMWFhVU"
     "BiImNTQ2NxcWNxEUBiImNTQ2NzoBMzI2NTQmKwEjFTMyNjU0JisBIxUzMjY1NCYr"
@@ -147,7 +147,7 @@ if uploaded_file is not None:
         if months_diff >= 12:
             report_title_ar, report_title_en = "تقرير أفضل مبيع السنوي المصفى", "Top Selling Performance Report - Annual"
         elif months_diff == 1:
-            report_title_ar, report_title_en = "تقرير أفضل مبيع لشهر واحد المصفى", "Top Selling Performance Report - 1 Month"
+            report_title_ar, report_title_en = "تقرير أفضل mبيع لشهر واحد المصفى", "Top Selling Performance Report - 1 Month"
         else:
             report_title_ar, report_title_en = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى", f"Top Selling Performance Report - Last {months_diff} Months"
 
