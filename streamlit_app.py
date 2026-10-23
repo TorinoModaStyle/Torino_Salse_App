@@ -193,4 +193,3 @@ if uploaded_file is not None:
         story.append(report_table)
         
         # إنتاج المستند النهائي وتخزينه في البايتات المخصصة للبث والتحميل
-git add streamlit_app.py && git commit -m "force absolute file save release" && git push origin main
