@@ -175,12 +175,8 @@ if uploaded_file is not None:
             ]
             table_data.append(row_cells)
 
-        # 🌟 تم تجاوز مشكلة الحذف التلقائي عبر كتابة مصفوفة العرض بطريقة آمنة ومجبرة للظهور
-        col_widths = [
-            int("80"), int("100"), int("100"), int("260")
-        ]
-        
-        report_table = Table(table_data, colWidths=col_widths)
+        # 🌟 تم حذف سطر تعيين العرض اليدوي تماماً لتقوم المكتبة بتقسيم المساحات تلقائياً ومنع خطأ السنتكس نهائياً
+        report_table = Table(table_data)
         report_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -196,3 +192,4 @@ if uploaded_file is not None:
         story.append(report_table)
         
         # إنتاج المستند النهائي وتخزينه في البايتات المخصصة للبث والتحميل
+        doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
