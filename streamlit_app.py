@@ -178,3 +178,5 @@ if uploaded_file is not None:
             ('BOTTOMPADDING', (0,1), (-1,-1), 6)
         ]))
         story.append(t_summary)
+    except Exception as e:
+        st.error(f"Error: {e}")
