@@ -1,3 +1,4 @@
+# install: pandas openpyxl reportlab arabic-reshaper python-bidi pillow
 import streamlit as st
 import pandas as pd
 import os
@@ -6,14 +7,12 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import io
-import urllib.request
 
-# دالة تصحيح النصوص العربية الأصلية والذكية الخاصة بك
 def fix_arabic(text):
     if not isinstance(text, str):
         text = str(text)
@@ -29,32 +28,32 @@ def add_page_number(canvas, doc):
     canvas.drawRightString(page_width - 36, 20, f"Page {page_num}")
     canvas.restoreState()
 
-# إعداد واجهة الموقع وتصميمها بهوية شركة Torino Moda Style
 st.set_page_config(page_title="Torino Moda Style - Analytics", page_icon="👔", layout="centered")
-
 st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
-st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل المبيعات الذكي وتوليد التقارير تلقائياً</h4>", unsafe_allow_html=True)
+st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل المبيعات الذكي وتوليد التقارير المصورة تلقائياً</h4>", unsafe_allow_html=True)
 st.write("---")
 
-# خطوة رفع ملف الإكسل ومجلد الصور الـ ZIP السحابي من قبل الموظف بكل سهولة
 uploaded_file = st.file_uploader("1️⃣ قم برفع ملف المبيعات (products.xlsx):", type=["xlsx"])
 uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد الصور مضغوطاً بصيغة (Photo.zip) لإظهار صور المنتجات:", type=["zip"])
 
 if uploaded_file is not None:
-    st.info("جاري قراءة البيانات وتجهيز محرك الخطوط العربية الفاخرة... برجاء الانتظار ثواني")
+    st.info("جاري معالجة البيانات وتوليد التقرير السحابي القياسي... برجاء الانتظار ثواني")
     
-    # تحميل خط Arial الأصلي المتوافق سحابياً لمنع المربعات تماماً على السيرفر
-    try:
-        font_url = "https://github.com"
-        font_path = "ArialAr.ttf"
-        if not os.path.exists(font_path):
-            urllib.request.urlretrieve(font_url, font_path)
-        pdfmetrics.registerFont(TTFont('ArialAr', font_path))
-        font_name = 'ArialAr'
-    except:
-        font_name = 'Helvetica'
+    # محاولة قراءة الخط العربي الافتراضي المتوفر في خوادم لينكس لحل مشكلة المربعات للأبد
+    font_name = 'Helvetica'
+    for possible_path in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "/usr/share/fonts/X11/TTF/DejaVuSans.ttf"
+    ]:
+        if os.path.exists(possible_path):
+            try:
+                pdfmetrics.registerFont(TTFont('CloudArabic', possible_path))
+                font_name = 'CloudArabic'
+                break
+            except:
+                pass
 
-    # معالجة تفكيك بايتات الصور من ملف الـ ZIP مباشرة في الذاكرة السحابية بدلاً من سطح المكتب
     extracted_photos = {}
     if uploaded_zip is not None:
         try:
@@ -73,7 +72,6 @@ if uploaded_file is not None:
                       'سعر المرتجع', 'سعر المبيع', 'اسم المادة الأساسي', 'السعر الأساسي',
                       'مادة الرصيد', 'رصيد المادة']
         
-        # تحديد المسار الزمني ديناميكياً
         df['تاريخ الفاتورة'] = pd.to_datetime(df['تاريخ الفاتورة'])
         min_date = df['تاريخ الفاتورة'].min()
         max_date = df['تاريخ الفاتورة'].max()
@@ -85,12 +83,9 @@ if uploaded_file is not None:
             report_title_ar, report_title_en = "تقرير أفضل مبيع السنوي المصفى", "Top Selling Performance Report - Annual"
         elif months_diff == 1:
             report_title_ar, report_title_en = "تقرير أفضل مبيع لشهر واحد المصفى", "Top Selling Performance Report - 1 Month"
-        elif months_diff == 2:
-            report_title_ar, report_title_en = "تقرير أفضل مبيع لآخر شهرين المصفى", "Top Selling Performance Report - Last 2 Months"
         else:
             report_title_ar, report_title_en = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى", f"Top Selling Performance Report - Last {months_diff} Months"
 
-        # تنظيف وتحويل البيانات
         df['كمية المبيع'] = pd.to_numeric(df['كمية المبيع'], errors='coerce').fillna(0)
         df['كمية المرتجع'] = pd.to_numeric(df['كمية المرتجع'], errors='coerce').fillna(0)
         df['سعر المبيع'] = pd.to_numeric(df['سعر المبيع'], errors='coerce').fillna(0)
@@ -99,7 +94,6 @@ if uploaded_file is not None:
         df['سعر المبيع المحدث'] = (df['سعر المبيع'] * 1.05).round()
         df['سعر المرتجع المحدث'] = (df['سعر المرتجع'] * 1.05).round()
 
-        # بناء قواميس الفهرسة السريعة الخاصة بك
         base_price_map = df.dropna(subset=['اسم المادة الأساسي', 'السعر الأساسي']).drop_duplicates(subset=['اسم المادة الأساسي']).set_index('اسم المادة الأساسي')['السعر الأساسي'].to_dict()
         stock_map = df.dropna(subset=['مادة الرصيد', 'رصيد المادة']).drop_duplicates(subset=['مادة الرصيد']).set_index('مادة الرصيد')['رصيد المادة'].to_dict()
 
@@ -116,41 +110,38 @@ if uploaded_file is not None:
 
         top_30 = agg_df.sort_values(by='صافي المبيعات', ascending=False).head(30)
 
-        # معالجة الـ PDF في الذاكرة للبث المباشر
         pdf_buffer = io.BytesIO()
         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
         
-        # ربط أنماط وهوية Torino الفخمة بالخط الجديد المصلح
         title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
-        subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=12, leading=16, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
-        section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=14, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
+        subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
+        section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
         cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
-        header_style = ParagraphStyle('HeaderCell', fontName=font_name, fontSize=9, leading=12, alignment=1, textColor=colors.white)
+        header_style = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
         story.append(Paragraph("Torino Moda Style", title_style))
-        story.append(Paragraph(fix_arabic(f"{report_title_ar} / {report_title_en}"), subtitle_style))
+        story.append(Paragraph(f"{fix_arabic(report_title_ar)} / {report_title_en}", subtitle_style))
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
         story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
 
         summary_headers = [
-            Paragraph(f"<b>{fix_arabic('الصورة')}<br/>(Photo)</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('المادة')}<br/>(Item)</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('السعر الأساسي')}<br/>(Base Price)</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('إجمالي المبيعات')}<br/>(Total Sold)</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('إجمالي المرتجعات')}<br/>(Total Ret)</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('صافي المبيعات')}<br/>(Net Sales)</b>", header_style),
-            Paragraph(f"<b>{fix_arabic('الرصيد الحالي')}<br/>(Current Stock)</b>", header_style)
+            Paragraph("Photo", header_style),
+            Paragraph("Item", header_style),
+            Paragraph(f"{fix_arabic('السعر الأساسي')}<br/><font size='7'>(Base Price)</font>", header_style),
+            Paragraph(f"{fix_arabic('إجمالي المبيعات')}<br/><font size='7'>(Total Sold)</font>", header_style),
+            Paragraph(f"{fix_arabic('إجمالي المرتجعات')}<br/><font size='7'>(Total Ret)</font>", header_style),
+            Paragraph(f"{fix_arabic('صافي المبيعات')}<br/><font size='7'>(Net Sales)</font>", header_style),
+            Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        col_widths = [60, 95, 75, 80, 80, 75, 75]
+        col_widths = [55, 80, 80, 80, 80, 80, 85]
         summary_table_data = [summary_headers]
         
         for idx, row in top_30.iterrows():
             mat_name = str(row['اسم المادة']).strip()
             img_flowable = Paragraph("", cell_style)
             
-            # التقاط بايتات الصورة تلقائياً من الـ ZIP المرفوع بدلاً من المجلد المحلي الممنوع سحابياً
             if mat_name in extracted_photos:
                 try:
                     img_data = io.BytesIO(extracted_photos[mat_name])
@@ -169,7 +160,6 @@ if uploaded_file is not None:
             ])
 
         t_summary = Table(summary_table_data, colWidths=col_widths, repeatRows=1)
-        t_summary = Table(summary_table_data, colWidths=col_widths, repeatRows=1)
         t_summary.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
@@ -178,10 +168,11 @@ if uploaded_file is not None:
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')]),
             ('TOPPADDING', (0,1), (-1,-1), 6),
             ('BOTTOMPADDING', (0,1), (-1,-1), 6)
+        ]))
         story.append(t_summary)
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         
-        st.success("✓ تم معالجة التقرير والبيانات بنجاح تام!")
+        st.success("✓ تم معالجة وتصحيح التقرير سحابياً بنجاح تام!")
         st.download_button(
             label="Download PDF Report",
             data=pdf_buffer.getvalue(),
