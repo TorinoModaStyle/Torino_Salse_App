@@ -12,7 +12,6 @@ from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import io
-import requests
 
 # 1️⃣ دالة معالجة وتصحيح نصوص اللغة العربية لعناصر التقرير
 def fix_arabic(text):
@@ -45,23 +44,20 @@ uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد 
 if uploaded_file is not None:
     st.info("جاري معالجة البيانات وتوليد التقرير السحابي القياسي... برجاء الانتظار ثواني")
     
-    # 🌟 2️⃣ التخلص من المربعات عبر تحميل خط Cairo العربي من مستودع Google Fonts تلقائياً
+    # 🌟 2️⃣ تسجيل الخطوط المحلية المتوفرة في خوادم لينكس السحابية لضمان قراءة العربية وتنسيق الجدول
     font_name = 'Helvetica'
-    font_url = "https://github.com"
-    local_font_path = "Cairo-Regular.ttf"
-    
-    try:
-        if not os.path.exists(local_font_path):
-            response = requests.get(font_url, timeout=15)
-            if response.status_code == 200:
-                with open(local_font_path, "wb") as f:
-                    f.write(response.content)
-        
-        if os.path.exists(local_font_path):
-            pdfmetrics.registerFont(TTFont('CloudArabic', local_font_path))
-            font_name = 'CloudArabic'
-    except Exception as e:
-        st.warning(f"تنبيه: تعذر جلب الخط العربي السحابي: {e}")
+    for possible_path in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "/usr/share/fonts/X11/TTF/DejaVuSans.ttf"
+    ]:
+        if os.path.exists(possible_path):
+            try:
+                pdfmetrics.registerFont(TTFont('CloudArabic', possible_path))
+                font_name = 'CloudArabic'
+                break
+            except:
+                pass
 
     extracted_photos = {}
     if uploaded_zip is not None:
@@ -107,15 +103,15 @@ if uploaded_file is not None:
         df['السعر الأساسي الفعلي'] = df['اسم المادة'].map(base_price_map)
         df = df.dropna(subset=['السعر الأساسي الفعلي'])
 
-        # 3️⃣ 📊 بناء هيكل الـ PDF وتوجيه أعمدة الجداول والخطوط برمجياً لليمين
+        # 3️⃣ 📊 بناء جدول PDF منسق بمسافات واضحة وعرض متناسق وثابت
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
         story = []
 
-        title_style_ar = ParagraphStyle('TitleAr', fontName=font_name, fontSize=18, leading=22, alignment=1, textColor=colors.HexColor('#1A365D'))
-        title_style_en = ParagraphStyle('TitleEn', fontName='Helvetica-Bold', fontSize=14, leading=18, alignment=1, textColor=colors.HexColor('#718096'))
-        cell_style_ar = ParagraphStyle('CellAr', fontName=font_name, fontSize=10, leading=13, alignment=2)
-        cell_style_en = ParagraphStyle('CellEn', fontName='Helvetica', fontSize=10, leading=13, alignment=0)
+        title_style_ar = ParagraphStyle('TitleAr', fontName=font_name, fontSize=16, leading=20, alignment=1, textColor=colors.HexColor('#1A365D'))
+        title_style_en = ParagraphStyle('TitleEn', fontName='Helvetica-Bold', fontSize=13, leading=16, alignment=1, textColor=colors.HexColor('#718096'))
+        cell_style_ar = ParagraphStyle('CellAr', fontName=font_name, fontSize=9, leading=12, alignment=2)
+        cell_style_en = ParagraphStyle('CellEn', fontName='Helvetica', fontSize=9, leading=12, alignment=0)
 
         story.append(Paragraph(fix_arabic(report_title_ar), title_style_ar))
         story.append(Paragraph(report_title_en, title_style_en))
@@ -138,7 +134,7 @@ if uploaded_file is not None:
             if item_name in extracted_photos:
                 try:
                     img_data = io.BytesIO(extracted_photos[item_name])
-                    img_flowable = Image(img_data, width=40, height=40)
+                    img_flowable = Image(img_data, width=45, height=45)
                 except:
                     pass
 
@@ -150,15 +146,16 @@ if uploaded_file is not None:
             ]
             table_data.append(row_cells)
 
-        report_table = Table(table_data)
+        # تحسين شكل عرض الجداول وتعيين أبعاد ثابتة يدويًا بشكل مخفي لضمان التنسيق الفخم ومظهر الشركات
+        report_table = Table(table_data, colWidths=[80, 100, 100, 260])
         report_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F7FAFC')),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
         ]))
@@ -167,7 +164,7 @@ if uploaded_file is not None:
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         pdf_bytes = buffer.getvalue()
         
-        st.success("🎉 تم إنتاج ملف التقرير بنجاح وحل مشكلة تشفير الحروف العربية ومواءمة الاتجاهات!")
+        st.success("🎉 تم إنتاج ملف التقرير بنجاح ومواءمة الاتجاهات!")
         st.download_button(
             label="📥 تحميل التقرير التفاعلي المصور بصيغة PDF",
             data=pdf_bytes,
