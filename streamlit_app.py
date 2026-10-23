@@ -147,7 +147,7 @@ if uploaded_file is not None:
         if months_diff >= 12:
             report_title_ar, report_title_en = "تقرير أفضل مبيع السنوي المصفى", "Top Selling Performance Report - Annual"
         elif months_diff == 1:
-            report_title_ar, report_title_en = "تقرير أفضل mبيع لشهر واحد المصفى", "Top Selling Performance Report - 1 Month"
+            report_title_ar, report_title_en = "تقرير أفضل مبيع لشهر واحد المصفى", "Top Selling Performance Report - 1 Month"
         else:
             report_title_ar, report_title_en = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى", f"Top Selling Performance Report - Last {months_diff} Months"
 
