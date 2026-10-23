@@ -6,7 +6,7 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable, Image
-from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -169,6 +169,7 @@ if uploaded_file is not None:
             ])
 
         t_summary = Table(summary_table_data, colWidths=col_widths, repeatRows=1)
+        t_summary = Table(summary_table_data, colWidths=col_widths, repeatRows=1)
         t_summary.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
@@ -178,4 +179,3 @@ if uploaded_file is not None:
             ('TOPPADDING', (0,1), (-1,-1), 6),
             ('BOTTOMPADDING', (0,1), (-1,-1), 6)
         ]))
-        story.append(t_summary)
