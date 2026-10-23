@@ -1,4 +1,4 @@
-# install: pandas openpyxl reportlab arabic-reshaper python-bidi pillow requests streamlit
+# install: pandas openpyxl reportlab arabic-reshaper python-bidi pillow
 import streamlit as st
 import pandas as pd
 import os
@@ -13,16 +13,11 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import io
 
-# 1️⃣ دالة معالجة وتصحيح نصوص اللغة العربية لعناصر التقرير
 def fix_arabic(text):
-    if text is None:
-        return ""
     if not isinstance(text, str):
         text = str(text)
-    if any("\u0600" <= char <= "\u06FF" for char in text):
-        reshaped_text = arabic_reshaper.reshape(text)
-        return get_display(reshaped_text)
-    return text
+    reshaped_text = arabic_reshaper.reshape(text)
+    return get_display(reshaped_text)
 
 def add_page_number(canvas, doc):
     canvas.saveState()
@@ -44,7 +39,7 @@ uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد 
 if uploaded_file is not None:
     st.info("جاري معالجة البيانات وتوليد التقرير السحابي القياسي... برجاء الانتظار ثواني")
     
-    # 🌟 2️⃣ تسجيل الخطوط المحلية المتوفرة في خوادم لينكس السحابية لضمان قراءة العربية وتنسيق الجدول
+    # محاولة قراءة الخط العربي الافتراضي المتوفر في خوادم لينكس لحل مشكلة المربعات للأبد
     font_name = 'Helvetica'
     for possible_path in [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -100,77 +95,89 @@ if uploaded_file is not None:
         df['سعر المرتجع المحدث'] = (df['سعر المرتجع'] * 1.05).round()
 
         base_price_map = df.dropna(subset=['اسم المادة الأساسي', 'السعر الأساسي']).drop_duplicates(subset=['اسم المادة الأساسي']).set_index('اسم المادة الأساسي')['السعر الأساسي'].to_dict()
+        stock_map = df.dropna(subset=['مادة الرصيد', 'رصيد المادة']).drop_duplicates(subset=['مادة الرصيد']).set_index('مادة الرصيد')['رصيد المادة'].to_dict()
+
         df['السعر الأساسي الفعلي'] = df['اسم المادة'].map(base_price_map)
         df = df.dropna(subset=['السعر الأساسي الفعلي'])
 
-        # 3️⃣ 📊 بناء جدول PDF منسق بمسافات واضحة وعرض متناسق وثابت
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
+        df['مبيع_مقبول'] = df.apply(lambda r: r['كمية المبيع'] if r['سعر المبيع المحدث'] >= (r['السعر الأساسي الفعلي'] - 20) else 0, axis=1)
+        df['مرتجع_مقبول'] = df.apply(lambda r: r['كمية المرتجع'] if r['سعر المرتجع المحدث'] >= (r['السعر الأساسي الفعلي'] - 20) else 0, axis=1)
+
+        agg_df = df.groupby('اسم المادة').agg({'مبيع_مقبول': 'sum', 'مرتجع_مقبول': 'sum'}).reset_index()
+        agg_df['صافي المبيعات'] = agg_df['مبيع_مقبول'] - agg_df['مرتجع_مقبول']
+        agg_df['السعر الأساسي'] = agg_df['اسم المادة'].map(base_price_map)
+        agg_df['رصيد المادة'] = agg_df['اسم المادة'].map(stock_map).fillna(0)
+
+        top_30 = agg_df.sort_values(by='صافي المبيعات', ascending=False).head(30)
+
+        pdf_buffer = io.BytesIO()
+        doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
+        
+        title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
+        subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
+        section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
+        cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
+        header_style = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
-        title_style_ar = ParagraphStyle('TitleAr', fontName=font_name, fontSize=16, leading=20, alignment=1, textColor=colors.HexColor('#1A365D'))
-        title_style_en = ParagraphStyle('TitleEn', fontName='Helvetica-Bold', fontSize=13, leading=16, alignment=1, textColor=colors.HexColor('#718096'))
-        cell_style_ar = ParagraphStyle('CellAr', fontName=font_name, fontSize=9, leading=12, alignment=2)
-        cell_style_en = ParagraphStyle('CellEn', fontName='Helvetica', fontSize=9, leading=12, alignment=0)
+        story.append(Paragraph("Torino Moda Style", title_style))
+        story.append(Paragraph(f"{fix_arabic(report_title_ar)} / {report_title_en}", subtitle_style))
+        story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
+        story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
 
-        story.append(Paragraph(fix_arabic(report_title_ar), title_style_ar))
-        story.append(Paragraph(report_title_en, title_style_en))
-        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#E2E8F0'), spaceBefore=10, spaceAfter=15))
-
-        summary_df = df.groupby('اسم المادة').agg({'كمية المبيع': 'sum', 'سعر المبيع المحدث': 'max'}).reset_index()
-        summary_df = summary_df.sort_values(by='كمية المبيع', ascending=False).head(20)
-
-        headers = [
-            Paragraph(fix_arabic("صورة المنتج"), cell_style_ar),
-            Paragraph(fix_arabic("السعر المحدث"), cell_style_ar),
-            Paragraph(fix_arabic("الكمية المباعة"), cell_style_ar),
-            Paragraph(fix_arabic("اسم المادة"), cell_style_ar)
+        summary_headers = [
+            Paragraph("Photo", header_style),
+            Paragraph("Item", header_style),
+            Paragraph(f"{fix_arabic('السعر الأساسي')}<br/><font size='7'>(Base Price)</font>", header_style),
+            Paragraph(f"{fix_arabic('إجمالي المبيعات')}<br/><font size='7'>(Total Sold)</font>", header_style),
+            Paragraph(f"{fix_arabic('إجمالي المرتجعات')}<br/><font size='7'>(Total Ret)</font>", header_style),
+            Paragraph(f"{fix_arabic('صافي المبيعات')}<br/><font size='7'>(Net Sales)</font>", header_style),
+            Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
-        table_data = [headers]
-
-        for _, row in summary_df.iterrows():
-            item_name = str(row['اسم المادة']).strip()
-            img_flowable = Paragraph(fix_arabic("لا توجد صورة"), cell_style_ar)
-            if item_name in extracted_photos:
+        
+        col_widths = [55, 80, 80, 80, 80, 80, 85]
+        summary_table_data = [summary_headers]
+        
+        for idx, row in top_30.iterrows():
+            mat_name = str(row['اسم المادة']).strip()
+            img_flowable = Paragraph("", cell_style)
+            
+            if mat_name in extracted_photos:
                 try:
-                    img_data = io.BytesIO(extracted_photos[item_name])
-                    img_flowable = Image(img_data, width=45, height=45)
+                    img_data = io.BytesIO(extracted_photos[mat_name])
+                    img_flowable = Image(img_data, width=35, height=35)
                 except:
                     pass
 
-            row_cells = [
-                img_flowable,
-                Paragraph(f"{row['سعر المبيع المحدث']:,}", cell_style_en),
-                Paragraph(f"{row['كمية المبيع']:,}", cell_style_en),
-                Paragraph(fix_arabic(item_name), cell_style_ar)
-            ]
-            table_data.append(row_cells)
+            summary_table_data.append([
+                img_flowable, 
+                Paragraph(mat_name, cell_style),
+                Paragraph(str(int(row['السعر الأساسي'])), cell_style),
+                Paragraph(str(int(row['مبيع_مقبول'])), cell_style),
+                Paragraph(str(int(row['مرتجع_مقبول'])), cell_style),
+                Paragraph(str(int(row['صافي المبيعات'])), cell_style),
+                Paragraph(str(int(row['رصيد المادة'])), cell_style)
+            ])
 
-        # تحسين شكل عرض الجداول وتعيين أبعاد ثابتة يدويًا بشكل مخفي لضمان التنسيق الفخم ومظهر الشركات
-        report_table = Table(table_data, colWidths=[80, 100, 100, 260])
-        report_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F7FAFC')),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+        t_summary = Table(summary_table_data, colWidths=col_widths, repeatRows=1)
+        t_summary.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')]),
+            ('TOPPADDING', (0,1), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,1), (-1,-1), 6)
         ]))
-        
-        story.append(report_table)
+        story.append(t_summary)
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
-        pdf_bytes = buffer.getvalue()
         
-        st.success("🎉 تم إنتاج ملف التقرير بنجاح ومواءمة الاتجاهات!")
+        st.success("✓ تم معالجة وتصحيح التقرير سحابياً بنجاح تام!")
         st.download_button(
-            label="📥 تحميل التقرير التفاعلي المصور بصيغة PDF",
-            data=pdf_bytes,
-            file_name="Torino_Moda_Best_Seller_Report.pdf",
+            label="Download PDF Report",
+            data=pdf_buffer.getvalue(),
+            file_name="sales_analysis_report.pdf",
             mime="application/pdf"
         )
-
     except Exception as e:
-        st.error(f"حدث خطأ أثناء معالجة الجداول البرمجية لـ PDF: {e}")
+        st.error(f"Error: {e}")
