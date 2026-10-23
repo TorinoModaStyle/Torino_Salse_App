@@ -99,7 +99,7 @@ if uploaded_file is not None:
         
         df['تاريخ الفاتورة'] = pd.to_datetime(df['تاريخ الفاتورة'])
         min_date = df['تاريخ الفاتورة'].min()
-        max_date = df['تاريخ الفاتورة'].max()
+        max_date = df['تاريخ الف?تورة'].max()
         months_diff = (max_date.year - min_date.year) * 12 + (max_date.month - min_date.month)
         if max_date.day >= min_date.day: months_diff += 1
         if months_diff <= 0: months_diff = 1
@@ -125,7 +125,7 @@ if uploaded_file is not None:
         df['السعر الأساسي الفعلي'] = df['اسم المادة'].map(base_price_map)
         df = df.dropna(subset=['السعر الأساسي الفعلي'])
 
-        # 3️⃣ 📊 بناء هيكل الـ PDF المفقود وتوجيه أعمدة الجداول والخطوط برمجياً لليمين
+        # 3️⃣ 📊 بناء هيكل الـ PDF وتوجيه أعمدة الجداول والخطوط برمجياً لليمين
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
         story = []
@@ -176,7 +176,7 @@ if uploaded_file is not None:
             table_data.append(row_cells)
 
         # تحديد أبعاد أعمدة الجدول وهيكلة التصميم الظاهري والشبكة لـ ReportLab (إجمالي العرض 540)
-        col_widths = [80, 100, 100, 260]
+        col_widths = [60, 90, 90, 300]
         report_table = Table(table_data, colWidths=col_widths)
         report_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
