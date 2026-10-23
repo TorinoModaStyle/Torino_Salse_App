@@ -1,4 +1,4 @@
-# install: pandas openpyxl reportlab arabic-reshaper python-bidi pillow
+# install: pandas openpyxl reportlab arabic-reshaper python-bidi pillow requests
 import streamlit as st
 import pandas as pd
 import os
@@ -15,7 +15,7 @@ import io
 import base64
 from PIL import Image as PILImage
 
-# 🌟 زرع خط كابرو الاحترافي ليعمل داخلياً في الخادم السحابي ويقضي على المربعات تماماً
+# 🌟 خط كابرو العربي الفاخر محقون نصياً داخل الكود ليظهر العربي أوتوماتيكياً في السيرفر بدون مربعات
 CAIRO_FONT_BASE64 = (
     "AAEAAAASAQAABAAwR0RFRgBJAEgAAAEsAAAAKEdQT1M6wD68AAAFDAAADBpHOVRM"
     "IEMwNQAADbQAAAAgY21hcD0QA78AAAGYAAAAsGNmcmFpT09XAAAL0AAAAGZnbHlm"
@@ -60,7 +60,7 @@ CAIRO_FONT_BASE64 = (
     "EQEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEAAPsAeP/6BBwE"
     "MAALABMAHAAsADQARABPAFgAXwBmAG0AdAB7AIIAiQCPAGwAYwBVAF0AMwA7AEQA"
     "ALMWFhUUBiImNTQ2NxcWNxEUBiImNTQ2NwsiIiIiIiIiIiIiIiIiIiIiIiIiIiIi"
-    "Il9NTQ0BERANDRElU00NAREQDQ0REU1NDQEREA0NERFNTQ0BERANDRENEQEDAf8B"
+    "Il9NTQ0BERANDRElu00NAREQDQ0REU1NDQEREA0NERFNTQ0BERANDRENEQEDAf8B"
     "Af8BAwEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEAAPsAeP/6BBwEMAALABMA"
     "HAAsADQARABPAFgAXwBmAG0AdAB7AIIAiQCPAGwAYwBVAF0AMwA7AEQAALMWFhVU"
     "BiImNTQ2NxcWNxEUBiImNTQ2NzoBMzI2NTQmKwEjFTMyNjU0JisBIxUzMjY1NCYr"
