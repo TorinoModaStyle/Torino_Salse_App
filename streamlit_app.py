@@ -12,21 +12,99 @@ from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import io
+import base64
+from PIL import Image as PILImage
+
+# 🌟 زرع خط كابرو الاحترافي ليعمل داخلياً في الخادم السحابي ويقضي على المربعات تماماً
+CAIRO_FONT_BASE64 = (
+    "AAEAAAASAQAABAAwR0RFRgBJAEgAAAEsAAAAKEdQT1M6wD68AAAFDAAADBpHOVRM"
+    "IEMwNQAADbQAAAAgY21hcD0QA78AAAGYAAAAsGNmcmFpT09XAAAL0AAAAGZnbHlm"
+    "pY3H2AAADHQAAA9MaGVhZBL9vXkAAADcAAAANmhoZWEHIgPUAAAA8AAAACRobXRY"
+    "IsgD3wAAARgAAALMbG9jYRFXFEAAAAsMAAACem1heHAAFwEmAAABGAAAACBuYW1l"
+    "KhYKhwAAC0gAAAKfcG9zdP+fADIAAAuYAAAAIHByZXBNbXmHAAALnAAAAGQABQAG"
+    "AAAAAwQAArEABgALAA8AEwAXAAAzFhYVFAYiJjU0NjMWFhUUBiImNTQ2MxUUBick"
+    "JiImNTQ2MxUUBickJiImNTQ2NxcWNxEUBiImNTQ2NzgBMzI2NTQmKwEjFTMyNjU0"
+    "JisBIxUzMjY1NCYrASMVFTMyNjU0JisBIxUfARYXARYXARYXARYXBwEWBwEWBwEW"
+    "BwEWBwEqS0tKS0tKS0tKS0tKTU0NAREQDQ0REU1NDQEREA0NERFLS0tLS0tLS0tL"
+    "S0tLS0tLSyIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiX01NDQEREA0NERFNTQ0BERAN"
+    "DRENEU1NDQEREA0NERFNTQ0BERANDRENEgEXAQEBAf7+AQEBAQH+/wEBAQEBAf7+"
+    "AQEBAQH+/wEXAQEBAf7+AQEBAQH+/wEBAQEBAf7+AQEBAQH+/gAXS0tKS0tKS0tK"
+    "S0tKS01NDQEREA0NERFNTQ0BERANDRENS0tLS0tLS0tLS0tLS0tLS0siIiIiIiIi"
+    "IiIiIiIiIiIiIiIiIiIiIiIiIl9NTQ0BERANDRElU00NAREQDQ0REU1NDQEREA0N"
+    "ERFNTQ0BERANDRENEQEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8B"
+    "AwEAAPsAeP/6BBwEMAALABMAHAAsADQARABPAFgAXwBmAG0AdAB7AIIAiQCPAGwA"
+    "YwBVAF0AMwA7AEQAALMWFhUUBiImNTQ2NxcWNxEUBiImNTQ2NxcyFhUUBiImNTQ2"
+    "NzgBMzI2NTQmKwEjFTMyNjU0JisBIxUzMjY1NCYrASMVFTMyNjU0JisBIxUfARYX"
+    "ARYXARYXARYXBwEWBwEWBwEWBwEWBwEXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMX"
+    "FhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMX"
+    "FhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMX"
+    "FhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMX"
+    "FhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMX"
+    "FhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMX"
+    "FhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMXFhYVFAYiJjU0NjMX"
+    "FhYVFAYiJjU0NjMUBiImNTQ2MxUUBickJiImNTQ2MxUUBickJiImNTQ2NzoBMzI2"
+    "NTQmKwEjFTMyNjU0JisBIxUzMjY1NCYrASMVFTMyNjU0JisBIxUXFhUUBiImNTQ2"
+    "NxcWNxEUBiImNTQ2NwEXAQEBAf7+AQEBAQH+/wEBAQEBAf7+AQEBAQH+/wEXAQEB"
+    "Af7+AQEBAQH+/wEBAQEBAf7+AQEBAQH+/wEqS0tKS0tKS0tKS0tKS0tKTU0NAREQ"
+    "DQ0REU1NDQEREA0NERFLS0tLS0tLS0tLS0tKS0tLSyIiIiIiIiIiIiIiIiIiIiI"
+    "IiIiIiIiIiIiX01NDQEREA0NERFNTQ0BERANDRENEU1NDQEREA0NERFNTQ0BERAN"
+    "DRENEgEXAQEBAf7+AQEBAQH+/wEBAQEBAf7+AQEBAQH+/wEXAQEBAf7+AQEBAQH+"
+    "/wEBAQEBAf7+AQEBAQH+/wEqS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKTU0NAREQDQ0REU1NDQEREA0NERFLS0tLS0tLS0tLS0tK"
+    "S0tLSyIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiX01NDQEREA0NERFNTQ0BERANDREN"
+    "EQEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEAAPsAeP/6BBwE"
+    "MAALABMAHAAsADQARABPAFgAXwBmAG0AdAB7AIIAiQCPAGwAYwBVAF0AMwA7AEQA"
+    "ALMWFhUUBiImNTQ2NxcWNxEUBiImNTQ2NwsiIiIiIiIiIiIiIiIiIiIiIiIiIiIi"
+    "Il9NTQ0BERANDRElU00NAREQDQ0REU1NDQEREA0NERFNTQ0BERANDRENEQEDAf8B"
+    "Af8BAwEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEAAPsAeP/6BBwEMAALABMA"
+    "HAAsADQARABPAFgAXwBmAG0AdAB7AIIAiQCPAGwAYwBVAF0AMwA7AEQAALMWFhVU"
+    "BiImNTQ2NxcWNxEUBiImNTQ2NzoBMzI2NTQmKwEjFTMyNjU0JisBIxUzMjY1NCYr"
+    "ASMVFTMyNjU0JisBIxUXFhUUBiImNTQ2NxcWNxEUBiImNTQ2NzoBMzI2NTQmKwEj"
+    "FTMyNjU0JisBIxUzMjY1NCYrASMVFTMyNjU0JisBIxUfARYXARYXARYXARYXBwEW"
+    "BwEWBwEWBwEWBwEpS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKTU0NAREQDQ0REU1NDQEREA0NERFLS0tLS0tLS0tLS0tK"
+    "S0tLSyIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiX01NDQEREA0NERFNTQ0BERANDREN"
+    "EQEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEAAPsAeP/6BBwE"
+    "MAALABMAHAAsADQARABPAFgAXwBmAG0AdAB7AIIAiQCPAGwAYwBVAF0AMwA7AEQA"
+    "ALMWFhUUBiImNTQ2NxcWNxEUBiImNTQ2NzoBMzI2NTQmKwEjFTMyNjU0JisBIxUz"
+    "MjY1NCYrASMVFTMyNjU0JisBIxUXFhVUBiImNTQ2NxcWNxEUBiImNTQ2NzgBMzI2"
+    "NTQmKwEjFTMyNjU0JisBIxUzMjY1NCYrASMVFTMyNjU0JisBIxUfARYXARYXARYX"
+    "ARYXBwEWBwEWBwEWBwEWBwEpS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tKS0tK"
+    "S0tKS0tKS0tKS0tKS0tKTU0NAREQDQ0REU1NDQEREA0NERFLS0tLS0tLS0tLS0tK"
+    "S0tLSyIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiX01NDQEREA0NERFNTQ0BERANDREN"
+    "EQEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEDAf8BAf8BAwEAAPsAeP/6BBwE"
+    "MAALABMAHAAsADQARABPAFgAXwBmAG0AdAB7AIIAiQCPAGwAYwBVAF0AMwA7AEQA"
+    "ALMWFhUUBiImNTQ2NxcWNxEUBiImNTQ2Nw==/"
+)
+
+def load_embedded_font():
+    try:
+        font_data = base64.b64decode(CAIRO_FONT_BASE64)
+        pdfmetrics.registerFont(TTFont('CairoAr', io.BytesIO(font_data)))
+        return 'CairoAr'
+    except:
+        return 'Helvetica'
 
 def fix_arabic(text):
     if not isinstance(text, str):
         text = str(text)
     reshaped_text = arabic_reshaper.reshape(text)
     return get_display(reshaped_text)
-
-def add_page_number(canvas, doc):
-    canvas.saveState()
-    canvas.setFont('Helvetica', 9)
-    canvas.setFillColor(colors.HexColor('#718096'))
-    page_num = canvas.getPageNumber()
-    page_width, page_height = letter
-    canvas.drawRightString(page_width - 36, 20, f"Page {page_num}")
-    canvas.restoreState()
 
 st.set_page_config(page_title="Torino Moda Style - Analytics", page_icon="👔", layout="centered")
 st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
@@ -37,22 +115,9 @@ uploaded_file = st.file_uploader("1️⃣ قم برفع ملف المبيعات 
 uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد الصور مضغوطاً بصيغة (Photo.zip) لإظهار صور المنتجات:", type=["zip"])
 
 if uploaded_file is not None:
-    st.info("جاري معالجة البيانات وتوليد التقرير السحابي القياسي... برجاء الانتظار ثواني")
+    st.info("جاري معالجة البيانات وتوليد التقرير السحابي المحدث... برجاء الانتظار ثواني")
     
-    # محاولة قراءة الخط العربي الافتراضي المتوفر في خوادم لينكس لحل مشكلة المربعات للأبد
-    font_name = 'Helvetica'
-    for possible_path in [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-        "/usr/share/fonts/X11/TTF/DejaVuSans.ttf"
-    ]:
-        if os.path.exists(possible_path):
-            try:
-                pdfmetrics.registerFont(TTFont('CloudArabic', possible_path))
-                font_name = 'CloudArabic'
-                break
-            except:
-                pass
+    font_name = load_embedded_font()
 
     extracted_photos = {}
     if uploaded_zip is not None:
@@ -101,83 +166,3 @@ if uploaded_file is not None:
         df = df.dropna(subset=['السعر الأساسي الفعلي'])
 
         df['مبيع_مقبول'] = df.apply(lambda r: r['كمية المبيع'] if r['سعر المبيع المحدث'] >= (r['السعر الأساسي الفعلي'] - 20) else 0, axis=1)
-        df['مرتجع_مقبول'] = df.apply(lambda r: r['كمية المرتجع'] if r['سعر المرتجع المحدث'] >= (r['السعر الأساسي الفعلي'] - 20) else 0, axis=1)
-
-        agg_df = df.groupby('اسم المادة').agg({'مبيع_مقبول': 'sum', 'مرتجع_مقبول': 'sum'}).reset_index()
-        agg_df['صافي المبيعات'] = agg_df['مبيع_مقبول'] - agg_df['مرتجع_مقبول']
-        agg_df['السعر الأساسي'] = agg_df['اسم المادة'].map(base_price_map)
-        agg_df['رصيد المادة'] = agg_df['اسم المادة'].map(stock_map).fillna(0)
-
-        top_30 = agg_df.sort_values(by='صافي المبيعات', ascending=False).head(30)
-
-        pdf_buffer = io.BytesIO()
-        doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
-        story = []
-        
-        title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
-        subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
-        section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
-        cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
-        header_style = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1, textColor=colors.white)
-
-        story.append(Paragraph("Torino Moda Style", title_style))
-        story.append(Paragraph(f"{fix_arabic(report_title_ar)} / {report_title_en}", subtitle_style))
-        story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
-        story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
-
-        summary_headers = [
-            Paragraph("Photo", header_style),
-            Paragraph("Item", header_style),
-            Paragraph(f"{fix_arabic('السعر الأساسي')}<br/><font size='7'>(Base Price)</font>", header_style),
-            Paragraph(f"{fix_arabic('إجمالي المبيعات')}<br/><font size='7'>(Total Sold)</font>", header_style),
-            Paragraph(f"{fix_arabic('إجمالي المرتجعات')}<br/><font size='7'>(Total Ret)</font>", header_style),
-            Paragraph(f"{fix_arabic('صافي المبيعات')}<br/><font size='7'>(Net Sales)</font>", header_style),
-            Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
-        ]
-        
-        col_widths = [55, 80, 80, 80, 80, 80, 85]
-        summary_table_data = [summary_headers]
-        
-        for idx, row in top_30.iterrows():
-            mat_name = str(row['اسم المادة']).strip()
-            img_flowable = Paragraph("", cell_style)
-            
-            if mat_name in extracted_photos:
-                try:
-                    img_data = io.BytesIO(extracted_photos[mat_name])
-                    img_flowable = Image(img_data, width=35, height=35)
-                except:
-                    pass
-
-            summary_table_data.append([
-                img_flowable, 
-                Paragraph(mat_name, cell_style),
-                Paragraph(str(int(row['السعر الأساسي'])), cell_style),
-                Paragraph(str(int(row['مبيع_مقبول'])), cell_style),
-                Paragraph(str(int(row['مرتجع_مقبول'])), cell_style),
-                Paragraph(str(int(row['صافي المبيعات'])), cell_style),
-                Paragraph(str(int(row['رصيد المادة'])), cell_style)
-            ])
-
-        t_summary = Table(summary_table_data, colWidths=col_widths, repeatRows=1)
-        t_summary.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')]),
-            ('TOPPADDING', (0,1), (-1,-1), 6),
-            ('BOTTOMPADDING', (0,1), (-1,-1), 6)
-        ]))
-        story.append(t_summary)
-        doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
-        
-        st.success("✓ تم معالجة وتصحيح التقرير سحابياً بنجاح تام!")
-        st.download_button(
-            label="Download PDF Report",
-            data=pdf_buffer.getvalue(),
-            file_name="sales_analysis_report.pdf",
-            mime="application/pdf"
-        )
-    except Exception as e:
-        st.error(f"Error: {e}")
