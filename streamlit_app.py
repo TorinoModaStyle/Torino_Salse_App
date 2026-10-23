@@ -1,4 +1,4 @@
-# install: pandas openpyxl reportlab arabic-reshaper python-bidi pillow requests
+# install: pandas openpyxl reportlab arabic-reshaper python-bidi pillow
 import streamlit as st
 import pandas as pd
 import os
