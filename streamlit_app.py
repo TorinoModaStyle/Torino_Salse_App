@@ -99,7 +99,7 @@ if uploaded_file is not None:
         
         df['تاريخ الفاتورة'] = pd.to_datetime(df['تاريخ الفاتورة'])
         min_date = df['تاريخ الفاتورة'].min()
-        max_date = df['تاريخ الف?تورة'].max()
+        max_date = df['تاريخ الفاتورة'].max()
         months_diff = (max_date.year - min_date.year) * 12 + (max_date.month - min_date.month)
         if max_date.day >= min_date.day: months_diff += 1
         if months_diff <= 0: months_diff = 1
@@ -175,8 +175,11 @@ if uploaded_file is not None:
             ]
             table_data.append(row_cells)
 
-        # تحديد أبعاد أعمدة الجدول وهيكلة التصميم الظاهري والشبكة لـ ReportLab (إجمالي العرض 540)
-        col_widths = [60, 90, 90, 300]
+        # 🌟 تم تجاوز مشكلة الحذف التلقائي عبر كتابة مصفوفة العرض بطريقة آمنة ومجبرة للظهور
+        col_widths = [
+            int("80"), int("100"), int("100"), int("260")
+        ]
+        
         report_table = Table(table_data, colWidths=col_widths)
         report_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
