@@ -175,7 +175,7 @@ if uploaded_file is not None:
             ]
             table_data.append(row_cells)
 
-        # تحديد أبعاد أعمدة الجدول وهيكلة التصميم الظاهري والشبكة لـ ReportLab
+        # تحديد أبعاد أعمدة الجدول وهيكلة التصميم الظاهري والشبكة لـ ReportLab (إجمالي العرض 540)
         col_widths = [80, 100, 100, 260]
         report_table = Table(table_data, colWidths=col_widths)
         report_table.setStyle(TableStyle([
