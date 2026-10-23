@@ -20,7 +20,6 @@ def fix_arabic(text):
         return ""
     if not isinstance(text, str):
         text = str(text)
-    # نطبق التشكيل فقط إذا احتوى النص على حروف عربية لتجنب عكس الأرقام النقية أو النصوص الإنجليزية
     if any("\u0600" <= char <= "\u06FF" for char in text):
         reshaped_text = arabic_reshaper.reshape(text)
         return get_display(reshaped_text)
@@ -62,22 +61,7 @@ if uploaded_file is not None:
             pdfmetrics.registerFont(TTFont('CloudArabic', local_font_path))
             font_name = 'CloudArabic'
     except Exception as e:
-        st.warning(f"تنبيه: تعذر جلب الخط العربي السحابي، سيتم محاولة استخدام خطوط النظام الاحتياطية: {e}")
-
-    # محاولة فحص مسارات لينكس المحلية كخطة احتياطية ثانية في حال فشل الاتصال بالشبكة
-    if font_name == 'Helvetica':
-        for possible_path in [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-            "/usr/share/fonts/X11/TTF/DejaVuSans.ttf"
-        ]:
-            if os.path.exists(possible_path):
-                try:
-                    pdfmetrics.registerFont(TTFont('CloudArabic', possible_path))
-                    font_name = 'CloudArabic'
-                    break
-                except:
-                    pass
+        st.warning(f"تنبيه: تعذر جلب الخط العربي السحابي: {e}")
 
     extracted_photos = {}
     if uploaded_zip is not None:
@@ -120,8 +104,6 @@ if uploaded_file is not None:
         df['سعر المرتجع المحدث'] = (df['سعر المرتجع'] * 1.05).round()
 
         base_price_map = df.dropna(subset=['اسم المادة الأساسي', 'السعر الأساسي']).drop_duplicates(subset=['اسم المادة الأساسي']).set_index('اسم المادة الأساسي')['السعر الأساسي'].to_dict()
-        stock_map = df.dropna(subset=['مادة الرصيد', 'رصيد المادة']).drop_duplicates(subset=['مادة الرصيد']).set_index('مادة الرصيد')['رصيد المادة'].to_dict()
-
         df['السعر الأساسي الفعلي'] = df['اسم المادة'].map(base_price_map)
         df = df.dropna(subset=['السعر الأساسي الفعلي'])
 
@@ -130,22 +112,18 @@ if uploaded_file is not None:
         doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
         story = []
 
-        # تجهيز التنسيقات (Styles) لنصوص التقرير مع دمج خط التقرير الديناميكي
         title_style_ar = ParagraphStyle('TitleAr', fontName=font_name, fontSize=18, leading=22, alignment=1, textColor=colors.HexColor('#1A365D'))
         title_style_en = ParagraphStyle('TitleEn', fontName='Helvetica-Bold', fontSize=14, leading=18, alignment=1, textColor=colors.HexColor('#718096'))
-        cell_style_ar = ParagraphStyle('CellAr', fontName=font_name, fontSize=10, leading=13, alignment=2) # محاذاة لليمين للنصوص العربية
-        cell_style_en = ParagraphStyle('CellEn', fontName='Helvetica', fontSize=10, leading=13, alignment=0) # محاذاة لليسار للنصوص الإنجليزية والأرقام
+        cell_style_ar = ParagraphStyle('CellAr', fontName=font_name, fontSize=10, leading=13, alignment=2)
+        cell_style_en = ParagraphStyle('CellEn', fontName='Helvetica', fontSize=10, leading=13, alignment=0)
 
-        # كتابة العناوين الأساسية في التقرير
         story.append(Paragraph(fix_arabic(report_title_ar), title_style_ar))
         story.append(Paragraph(report_title_en, title_style_en))
         story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#E2E8F0'), spaceBefore=10, spaceAfter=15))
 
-        # حساب وحصر البيانات المطلوبة لجدول "أفضل المنتجات مبيعاً"
         summary_df = df.groupby('اسم المادة').agg({'كمية المبيع': 'sum', 'سعر المبيع المحدث': 'max'}).reset_index()
-        summary_df = summary_df.sort_values(by='كمية المبيع', ascending=False).head(20) # استخراج أعلى 20 مادة كمثال
+        summary_df = summary_df.sort_values(by='كمية المبيع', ascending=False).head(20)
 
-        # بناء ترويسة الجدول من اليمين لليسار (RTL Order)
         headers = [
             Paragraph(fix_arabic("صورة المنتج"), cell_style_ar),
             Paragraph(fix_arabic("السعر المحدث"), cell_style_ar),
@@ -154,11 +132,8 @@ if uploaded_file is not None:
         ]
         table_data = [headers]
 
-        # حلقة برمجية لحقن صفوف البيانات بداخل الجدول وصور الـ Zip
         for _, row in summary_df.iterrows():
             item_name = str(row['اسم المادة']).strip()
-            
-            # محاولة جلب ومعالجة صورة المنتج الفردي من كائن الـ Zip المرفوع
             img_flowable = Paragraph(fix_arabic("لا توجد صورة"), cell_style_ar)
             if item_name in extracted_photos:
                 try:
@@ -175,7 +150,6 @@ if uploaded_file is not None:
             ]
             table_data.append(row_cells)
 
-        # 🌟 تم حذف سطر تعيين العرض اليدوي تماماً لتقوم المكتبة بتقسيم المساحات تلقائياً ومنع خطأ السنتكس نهائياً
         report_table = Table(table_data)
         report_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
@@ -190,6 +164,16 @@ if uploaded_file is not None:
         ]))
         
         story.append(report_table)
-        
-        # إنتاج المستند النهائي وتخزينه في البايتات المخصصة للبث والتحميل
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
+        pdf_bytes = buffer.getvalue()
+        
+        st.success("🎉 تم إنتاج ملف التقرير بنجاح وحل مشكلة تشفير الحروف العربية ومواءمة الاتجاهات!")
+        st.download_button(
+            label="📥 تحميل التقرير التفاعلي المصور بصيغة PDF",
+            data=pdf_bytes,
+            file_name="Torino_Moda_Best_Seller_Report.pdf",
+            mime="application/pdf"
+        )
+
+    except Exception as e:
+        st.error(f"حدث خطأ أثناء معالجة الجداول البرمجية لـ PDF: {e}")
