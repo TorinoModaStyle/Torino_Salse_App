@@ -33,16 +33,22 @@ branch = st.selectbox("🌍 اختر فرع العملة المطلوب العم
     "فرع تنزانيا (شلن تنزاني TZS)"
 ])
 
+# [تعديل 4] تعيين أسماء الدول كاملة باللغتين مع الإبقاء على نسب الحسابات لكل فرع
 if "عُمان" in branch:
     curr, tax_rate, discount = "OMR", 1.05, 2
+    country_ar, country_en = "سلطنة عُمان", "Sultanate of Oman"
 elif "السعودية" in branch:
     curr, tax_rate, discount = "SAR", 1.15, 20
+    country_ar, country_en = "المملكة العربية السعودية", "Kingdom of Saudi Arabia"
 elif "البحرين" in branch:
     curr, tax_rate, discount = "BHD", 1.10, 2
+    country_ar, country_en = "مملكة البحرين", "Kingdom of Bahrain"
 elif "تنزانيا" in branch:
     curr, tax_rate, discount = "TZS", 1.00, 10000
+    country_ar, country_en = "جمهورية تنزانيا الاتحادية", "United Republic of Tanzania"
 else:
     curr, tax_rate, discount = "AED", 1.05, 20
+    country_ar, country_en = "دولة الإمارات العربية المتحدة", "United Arab Emirates"
 
 file_in = st.file_uploader("1️⃣ رفع ملف المبيعات (products.xlsx):", type=["xlsx"])
 zip_in = st.file_uploader("2️⃣ اختياري: رفع مجلد الصور (Photo.zip):", type=["zip"])
@@ -78,12 +84,16 @@ if file_in is not None:
         if max_date.day >= min_date.day: months_diff += 1
         if months_diff <= 0: months_diff = 1
         
+        # [تعديل 4] إدراج اسم الدولة بدلاً من رمز العملة المختصر في عنوان التقرير
         if months_diff >= 12:
-            report_title_ar, report_title_en = f"تقرير أفضل مبيع السنوي المصفى ({curr})", f"Top Selling Performance Report - Annual ({curr})"
+            report_title_ar = f"تقرير أفضل مبيع السنوي المصفى - {country_ar}"
+            report_title_en = f"Top Selling Performance Report - Annual ({country_en})"
         elif months_diff == 1:
-            report_title_ar, report_title_en = f"تقرير أفضل مبيع لشهر واحد المصفى ({curr})", f"Top Selling Performance Report - 1 Month ({curr})"
+            report_title_ar = f"تقرير أفضل مبيع لشهر واحد المصفى - {country_ar}"
+            report_title_en = f"Top Selling Performance Report - 1 Month ({country_en})"
         else:
-            report_title_ar, report_title_en = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى ({curr})", f"Top Selling Performance Report - Last {months_diff} Months ({curr})"
+            report_title_ar = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى - {country_ar}"
+            report_title_en = f"Top Selling Performance Report - Last {months_diff} Months ({country_en})"
 
         for c in ['ret_qty', 'sale_qty', 'sale_prc', 'ret_prc']:
             df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
@@ -106,18 +116,20 @@ if file_in is not None:
         top30 = agg.sort_values(by='net', ascending=False).head(30)
 
         buf = io.BytesIO()
-        doc = SimpleDocTemplate(buf, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
+        # [تعديل 1] تقليل الهوامش العلوية والسفلية لضمان سحب الجدول إلى الصفحة الأولى بدقة
+        doc = SimpleDocTemplate(buf, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=25, bottomMargin=25)
         story = []
         
-        title_s = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
-        sub_s = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
-        section_s = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
+        # [تعديل 1] جعل أحجام مساحات العناوين رشيقة ومحكمة لاستغلال المساحة المتاحة
+        title_s = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=24, leading=28, alignment=1, spaceAfter=6, textColor=colors.HexColor('#1A365D'))
+        sub_s = ParagraphStyle('SubTitle', fontName=font_name, fontSize=10, leading=14, alignment=1, spaceAfter=12, textColor=colors.HexColor('#D69E2E'))
+        section_s = ParagraphStyle('SecTitle', fontName=font_name, fontSize=11, alignment=1, spaceBefore=2, spaceAfter=8, textColor=colors.HexColor('#2B6CB0'))
         cell_s = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
         hd_s = ParagraphStyle('HeaderCell', fontName=font_name, fontSize=9, leading=11, alignment=1, textColor=colors.white)
 
         story.append(Paragraph("Torino Moda Style", title_s))
         story.append(Paragraph(f"{fix_arabic(report_title_ar)} / {report_title_en}", sub_s))
-        story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
+        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#1A365D'), spaceAfter=10))
         story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_s))
 
         hds = [
@@ -132,8 +144,8 @@ if file_in is not None:
         rows = []
         for _, r in top30.iterrows():
             nm = str(r['name']).strip()
-            # [ضبط هندسي] تكبير حجم الصورة إلى 52 لتظهر واضحة وتناسب الارتفاع الجديد تماماً
-            img = Image(io.BytesIO(photos[nm]), width=52, height=52) if nm in photos else Paragraph("", cell_s)
+            # [تعديل 2] تحديد أبعاد ثابتة وموحدة 48×48 لضمان تساوي مظهر وحجم الصفوف بالملي
+            img = Image(io.BytesIO(photos[nm]), width=48, height=48) if nm in photos else Paragraph("", cell_s)
             rows.append([
                 img, 
                 Paragraph(fix_arabic(nm), cell_s), 
@@ -141,38 +153,37 @@ if file_in is not None:
                 Paragraph(str(int(r['stock'])), style=cell_s)
             ])
 
-        # [ضبط هندسي] تعيين الحشو على 11 علوياً وسفلياً لتكبير المربعات لأقصى حد مسموح ومناسب لحجم الصفحة دون فيضان
+        # [تعديل 2] تعيين حشو داخلي متناسق وثابت بمقدار 8 يضمن مظهر احترافي ومربعات ممتدة بانتظام
         ts = TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')), 
             ('ALIGN', (0,0), (-1,-1), 'CENTER'), 
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), 
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0')),
-            ('TOPPADDING', (0,0), (-1,-1), 11),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 11)
+            ('TOPPADDING', (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 8)
         ])
 
+        # توزيع الصفوف بالتساوي؛ 16 صنفاً في كل صفحة (8 لليمين و8 لليسار)
         for i in range(0, len(rows), 16):
             p_items = rows[i:i+16]
             l_data = p_items[:8]
             r_data = p_items[8:]
-            while len(l_data) < 8: l_data.append([Paragraph("", cell_s)] * 4)
-            while len(r_data) < 8: r_data.append([Paragraph("", cell_s)] * 4)
             
-            t_left = Table([hds] + l_data, colWidths=col_widths)
-            t_left.setStyle(ts)
-            t_right = Table([hds] + r_data, colWidths=col_widths)
-            t_right.setStyle(ts)
-            
-            master_widths = [int(w) for w in "260 20 260".split()]
-            master_table = Table([[t_left, Paragraph("", cell_s), t_right]], colWidths=master_widths)
-            
-            master_style = TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 15)])
-            master_table.setStyle(master_style)
-            story.append(master_table)
+            # [تعديل 3] نكتفي بإنشاء الجدول بناءً على البيانات المتوفرة الفردية دون إجبار صفوف فارغة في النهاية
+            if len(l_data) > 0 or len(r_data) > 0:
+                t_left = Table([hds] + l_data, colWidths=col_widths) if len(l_data) > 0 else Paragraph("", cell_s)
+                if len(l_data) > 0: t_left.setStyle(ts)
+                
+                t_right = Table([hds] + r_data, colWidths=col_widths) if len(r_data) > 0 else Paragraph("", cell_s)
+                if len(r_data) > 0: t_right.setStyle(ts)
+                
+                master_widths = [int(w) for w in "260 20 260".split()]
+                master_table = Table([[t_left, Paragraph("", cell_s), t_right]], colWidths=master_widths)
+                
+                master_style = TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 10)])
+                master_table.setStyle(master_style)
+                story.append(master_table)
             
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         buf.seek(0)
-        st.success("🎉 تم توليد تقرير فرع " + curr + " بنجاح بالشكل الفاخر المتوازن والتاريخ الدقيق!")
-        st.download_button(label=f"📥 تحميل التقرير بصيغة PDF ({curr})", data=buf, file_name=f"Report_{curr}.pdf", mime="application/pdf")
-    except Exception as err:
-        st.error(f"خطأ: {err}")
+        st.success(f"🎉 تم توليد تقرير {country_ar} بنجاح بالمظهر الهندسي المثالي!")
