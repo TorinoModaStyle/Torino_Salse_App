@@ -185,4 +185,3 @@ if uploaded_file is not None:
                 right_table_content = [summary_headers] + right_side_data
                 right_table = Table(right_table_content, colWidths=col_widths)
                 right_table.setStyle(TableStyle([
-git add streamlit_app.py && git commit -m "force absolute file save release" && git push origin main
