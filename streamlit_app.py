@@ -133,8 +133,8 @@ if uploaded_file is not None:
             Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        # أبعاد العرض لكل عمود في النصف الواحد من الصفحة
-        col_widths = [55, 95, 60, 60]
+        # أبعاد العرض الصحيحة لكل عمود في النصف الواحد من الصفحة (الإجمالي 270)
+        col_widths = [55, 80, 65, 70]
         
         all_rows_data = []
         for idx, row in top_30.iterrows():
@@ -186,4 +186,4 @@ if uploaded_file is not None:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E0')),
+git add streamlit_app.py && git commit -m "force absolute file save release" && git push origin main
