@@ -39,7 +39,6 @@ uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد 
 if uploaded_file is not None:
     st.info("جاري معالجة البيانات وتوليد التقرير السحابي القياسي... برجاء الانتظار ثواني")
     
-    # محاولة قراءة الخط العربي الافتراضي المتوفر في خوادم لينكس لحل مشكلة المربعات للأبد
     font_name = 'Helvetica'
     for possible_path in [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -125,7 +124,7 @@ if uploaded_file is not None:
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
         story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
 
-        # ترويسة الجدول المعدل بدون الأعمدة الثلاثة الملغاة
+        # ترويسة الأعمدة الأربعة المطلوبة فقط
         summary_headers = [
             Paragraph("Photo", header_style),
             Paragraph("Item", header_style),
@@ -133,8 +132,8 @@ if uploaded_file is not None:
             Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        # أبعاد العرض الصحيحة لكل عمود في النصف الواحد من الصفحة (الإجمالي 270)
-        col_widths = [55, 80, 65, 70]
+        # توزيع أبعاد الأعمدة بالتساوي للنصف الواحد (مجموعها 260)
+        col_widths = [55, 75, 65, 65]
         
         all_rows_data = []
         for idx, row in top_30.iterrows():
@@ -156,7 +155,7 @@ if uploaded_file is not None:
             ]
             all_rows_data.append(row_cells)
 
-        # تقسيم الجدول تلقائياً لعمودين منفصلين متجاورين بحد أقصى 8 عناصر لكل صفحة في الجانب الواحد
+        # تقسيم البيانات إلى قسمين متساويين لطباعتهما جنباً إلى جنب في الصفحة
         rows_per_page_side = 8
         total_items = len(all_rows_data)
         
@@ -166,7 +165,7 @@ if uploaded_file is not None:
             left_side_data = page_items[:rows_per_page_side]
             right_side_data = page_items[rows_per_page_side:]
             
-            # النصف الأيسر
+            # بناء جدول النصف الأيسر بالكامل بشكل صحيح
             left_table_content = [summary_headers] + left_side_data
             left_table = Table(left_table_content, colWidths=col_widths)
             left_table.setStyle(TableStyle([
@@ -178,7 +177,7 @@ if uploaded_file is not None:
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]))
             
-            # النصف الأيمن
+            # بناء جدول النصف الأيمن وإغلاق الأقواس بشكل سليم
             if right_side_data:
                 right_table_content = [summary_headers] + right_side_data
                 right_table = Table(right_table_content, colWidths=col_widths)
@@ -186,3 +185,5 @@ if uploaded_file is not None:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E0')),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
