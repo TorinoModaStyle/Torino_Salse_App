@@ -131,7 +131,8 @@ if uploaded_file is not None:
             Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        col_widths = [50, 90, 60, 60]
+        # كتابة المقاسات باستخدام دالة list الصريحة لضمان عدم اختفائها تلقائياً (العرض 260 لكل نصف)
+        col_widths = list((55, 85, 60, 60))
         
         all_rows_data = []
         for idx, row in top_30.iterrows():
@@ -162,7 +163,6 @@ if uploaded_file is not None:
             left_side_data = page_items[:rows_per_page_side]
             right_side_data = page_items[rows_per_page_side:]
             
-            # بناء النصف الأيسر بالكامل مع إغلاق التنسيق
             left_table_content = [summary_headers] + left_side_data
             left_table = Table(left_table_content, colWidths=col_widths)
             left_table.setStyle(TableStyle([
@@ -174,7 +174,6 @@ if uploaded_file is not None:
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4)
             ]))
             
-            # بناء النصف الأيمن بالكامل وبدون اختصار الأقواس
             if right_side_data:
                 right_table_content = [summary_headers] + right_side_data
                 right_table = Table(right_table_content, colWidths=col_widths)
@@ -188,3 +187,4 @@ if uploaded_file is not None:
                 ]))
             else:
                 right_table = Table([[Paragraph("", cell_style)] * 4], colWidths=col_widths)
+            
