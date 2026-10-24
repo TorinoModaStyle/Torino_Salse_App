@@ -39,6 +39,7 @@ uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد 
 if uploaded_file is not None:
     st.info("جاري معالجة البيانات وتوليد التقرير السحابي القياسي... برجاء الانتظار ثواني")
     
+    # محاولة قراءة الخط العربي الافتراضي المتوفر في خوادم لينكس لحل مشكلة المربعات للأبد
     font_name = 'Helvetica'
     for possible_path in [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -127,18 +128,16 @@ if uploaded_file is not None:
         summary_headers = [
             Paragraph("Photo", header_style),
             Paragraph("Item", header_style),
+            Paragraph(f"{fix_arabic('السعر الأساسي')}<br/><font size='7'>(Base Price)</font>", header_style),
+            Paragraph(f"{fix_arabic('إجمالي المبيعات')}<br/><font size='7'>(Total Sold)</font>", header_style),
+            Paragraph(f"{fix_arabic('إجمالي المرتجعات')}<br/><font size='7'>(Total Ret)</font>", header_style),
             Paragraph(f"{fix_arabic('صافي المبيعات')}<br/><font size='7'>(Net Sales)</font>", header_style),
             Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        # استخدام دالة التجميع لتفادي حذف مقاسات الأعمدة (55, 85, 60, 60)
-        col_widths = list()
-        col_widths.append(55)
-        col_widths.append(85)
-        col_widths.append(60)
-        col_widths.append(60)
+        col_widths = [55, 80, 80, 80, 80, 80, 85]
+        summary_table_data = [summary_headers]
         
-        all_rows_data = []
         for idx, row in top_30.iterrows():
             mat_name = str(row['اسم المادة']).strip()
             img_flowable = Paragraph("", cell_style)
@@ -146,47 +145,39 @@ if uploaded_file is not None:
             if mat_name in extracted_photos:
                 try:
                     img_data = io.BytesIO(extracted_photos[mat_name])
-                    img_flowable = Image(img_data, width=45, height=45)
+                    img_flowable = Image(img_data, width=35, height=35)
                 except:
                     pass
-            
-            row_cells = [
-                img_flowable,
-                Paragraph(fix_arabic(mat_name), cell_style),
+
+            summary_table_data.append([
+                img_flowable, 
+                Paragraph(mat_name, cell_style),
+                Paragraph(str(int(row['السعر الأساسي'])), cell_style),
+                Paragraph(str(int(row['مبيع_مقبول'])), cell_style),
+                Paragraph(str(int(row['مرتجع_مقبول'])), cell_style),
                 Paragraph(str(int(row['صافي المبيعات'])), cell_style),
                 Paragraph(str(int(row['رصيد المادة'])), cell_style)
-            ]
-            all_rows_data.append(row_cells)
+            ])
 
-        rows_per_page_side = 8
-        total_items = len(all_rows_data)
+        t_summary = Table(summary_table_data, colWidths=col_widths, repeatRows=1)
+        t_summary.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')]),
+            ('TOPPADDING', (0,1), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,1), (-1,-1), 6)
+        ]))
+        story.append(t_summary)
+        doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         
-        for i in range(0, total_items, rows_per_page_side * 2):
-            page_items = all_rows_data[i:i + (rows_per_page_side * 2)]
-            
-            left_side_data = page_items[:rows_per_page_side]
-            right_side_data = page_items[rows_per_page_side:]
-            
-            left_table_content = [summary_headers] + left_side_data
-            left_table = Table(left_table_content, colWidths=col_widths)
-            left_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E0')),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4)
-            ]))
-            
-            if right_side_data:
-                right_table_content = [summary_headers] + right_side_data
-                right_table = Table(right_table_content, colWidths=col_widths)
-                right_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E0')),
-                    ('TOPPADDING', (0, 0), (-1, -1), 4),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4)
-                ]))
-            else:
+        st.success("✓ تم معالجة وتصحيح التقرير سحابياً بنجاح تام!")
+        st.download_button(
+            label="Download PDF Report",
+            data=pdf_buffer.getvalue(),
+            file_name="sales_analysis_report.pdf",
+            mime="application/pdf"
+        )
+    except Exception as e:
+        st.error(f"Error: {e}")
