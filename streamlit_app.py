@@ -26,7 +26,6 @@ st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</
 st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل المبيعات الذكي وتوليد التقارير المصورة تلقائياً</h4>", unsafe_allow_html=True)
 st.write("---")
 
-# إضافة فرع الكويت إلى القائمة المنسدلة
 branch = st.selectbox("🌍 اختر فرع العملة المطلوب العمل عليه:", [
     "فرع الإمارات (درهم إماراتي AED)", 
     "فرع عُمان (ريال عُماني OMR)",
@@ -36,7 +35,6 @@ branch = st.selectbox("🌍 اختر فرع العملة المطلوب العم
     "فرع الكويت (دينار كويتي KWD)"
 ])
 
-# ضبط إعدادات الفروع الستة كاملة ديناميكياً
 if "عُمان" in branch:
     curr, tax_rate, discount = "OMR", 1.05, 2
     country_ar, country_en = "سلطنة عُمان", "Sultanate of Oman"
@@ -79,7 +77,6 @@ if uploaded_file is not None:
                         photos[name_without_ext.strip()] = archive.read(file_info.filename)
         except: pass
 
-    # الحسابات المباشرة بدون بلوك معقد لمنع أخطاء الإزاحة تماماً
     df = pd.read_excel(uploaded_file, usecols="A:J")
     c1, c2, c3, c4, c5 = 'col1', 'col2', 'col3', 'col4', 'col5'
     c6, c7, r_c8, c9, c10 = 'col6', 'col7', 'col8', 'col9', 'col10'
@@ -104,7 +101,6 @@ if uploaded_file is not None:
     for col in [c3, c4, c6, c5]:
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-    # ضبط معادلة التقريب لفرع الكويت والبحرين لتظهر الخانة العشرية بدقة (.round(1))
     if curr == "OMR":
         df['سعر المبيع المحدث'] = (df[c6] * tax_rate * 2).round() / 2
         df['سعر المرتجع المحدث'] = (df[c5] * tax_rate * 2).round() / 2
@@ -193,5 +189,9 @@ if uploaded_file is not None:
             master_table.setStyle(master_style)
             story.append(master_table)
         
+    # [تم الإصلاح الحاسم] تم استعادة أمر بناء التقرير وإغلاق تدفق بايتات مستند الـ PDF بنجاح ليعرضه المتصفح فوراً وبأعلى جودة
+    doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
+    pdf_buffer.seek(0)
+    
     st.success(f"🎉 تم توليد تقرير {country_ar} بنجاح ومطابق تماماً للنظام المحاسبي!")
     st.download_button(label="📥 تحميل التقرير بصيغة PDF", data=pdf_buffer, file_name=f"Report_{curr}.pdf", mime="application/pdf")
