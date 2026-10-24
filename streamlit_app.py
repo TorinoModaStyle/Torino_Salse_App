@@ -127,7 +127,6 @@ if uploaded_file is not None:
         subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
         section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
         cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
-        # تعديل ترويسة الجدول لتعتمد على الخط الجديد لتدعم اللغة العربية
         header_style = ParagraphStyle('HeaderCell', fontName=font_name, fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
         story.append(Paragraph("Torino Moda Style", title_style))
@@ -196,3 +195,5 @@ if uploaded_file is not None:
                 right_table = Table([[Paragraph("", cell_style)] * 4], colWidths=col_widths)
             
             master_widths = list()
+            master_widths.append(260)
+            master_widths.append(20)
