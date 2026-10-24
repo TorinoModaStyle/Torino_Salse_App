@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import os, zipfile, io, arabic_reshaper
 from bidi.algorithm import get_display
 from reportlab.lib.pagesizes import letter
@@ -33,7 +34,6 @@ branch = st.selectbox("🌍 اختر فرع العملة المطلوب العم
     "فرع تنزانيا (شلن تنزاني TZS)"
 ])
 
-# تعيين أسماء الدول كاملة باللغتين ونسب الحسابات لكل فرع
 if "عُمان" in branch:
     curr, tax_rate, discount = "OMR", 1.05, 2
     country_ar, country_en = "سلطنة عُمان", "Sultanate of Oman"
@@ -75,14 +75,10 @@ if uploaded_file is not None:
 
     try:
         df = pd.read_excel(uploaded_file, usecols="A:J")
-        
-        # [تم الإصلاح] استعادة تعريف أسماء الأعمدة العربية الأصلية المتوافقة تماماً مع ملفك
         c1, c2, c3, c4, c5 = 'تاريخ الفاتورة', 'اسم المادة', 'كمية المرتجع', 'كمية المبيع', 'سعر المرتجع'
-        c6, c7, c8, c9, c10 = 'سعر المبيع', 'اسم المادة الأساسي', 'السعر الأساسي', 'مادة الرصيد', 'رصيد المادة'
-        
-        df.columns = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10]
+        c6, c7, r_c8, c9, c10 = 'سعر المبيع', 'اسم المادة الأساسي', 'السعر الأساسي', 'مادة الرصيد', 'رصيد المادة'
+        df.columns = [c1, c2, c3, c4, c5, c6, c7, r_c8, c9, c10]
         df[c1] = pd.to_datetime(df[c1])
-        
         min_date, max_date = df[c1].min(), df[c1].max()
         months_diff = (max_date.year - min_date.year) * 12 + (max_date.month - min_date.month)
         if max_date.day >= min_date.day: months_diff += 1
@@ -101,10 +97,14 @@ if uploaded_file is not None:
         for col in [c3, c4, c6, c5]:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-        df['سعر المبيع المحدث'] = (df[c6] * tax_rate).round()
-        df['سعر المرتجع المحدث'] = (df[c5] * tax_rate).round()
+        if curr == "OMR":
+            df['سعر المبيع المحدث'] = (df[c6] * tax_rate * 2).round() / 2
+            df['سعر المرتجع المحدث'] = (df[c5] * tax_rate * 2).round() / 2
+        else:
+            df['سعر المبيع المحدث'] = (df[c6] * tax_rate).round()
+            df['سعر المرتجع المحدث'] = (df[c5] * tax_rate).round()
 
-        base_price_map = df.dropna(subset=[c7, c8]).drop_duplicates(subset=[c7]).set_index(c7)[c8].to_dict()
+        base_price_map = df.dropna(subset=[c7, r_c8]).drop_duplicates(subset=[c7]).set_index(c7)[r_c8].to_dict()
         stock_map = df.dropna(subset=[c9, c10]).drop_duplicates(subset=[c9]).set_index(c9)[c10].to_dict()
 
         df['السعر الأساسي الفعلي'] = df[c2].map(base_price_map)
@@ -184,7 +184,7 @@ if uploaded_file is not None:
             
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         pdf_buffer.seek(0)
-        st.success(f"🎉 تم توليد تقرير {country_ar} بنجاح بالمظهر الهندسي المثالي!")
+        st.success(f"🎉 تم توليد تقرير {country_ar} بنجاح ومطابق للفاتورة المحاسبية!")
         st.download_button(label="📥 تحميل التقرير بصيغة PDF", data=pdf_buffer, file_name=f"Report_{curr}.pdf", mime="application/pdf")
     except Exception as err:
         st.error(f"خطأ: {err}")
