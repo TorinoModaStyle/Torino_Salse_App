@@ -16,14 +16,32 @@ def add_page_number(canvas, doc):
     canvas.saveState()
     canvas.setFont('Helvetica', 9)
     canvas.setFillColor(colors.HexColor('#718096'))
-    canvas.drawRightString(letter[0] - 36, 20, f"Page {canvas.getPageNumber()}")
+    canvas.drawRightString(letter - 36, 20, f"Page {canvas.getPageNumber()}")
     canvas.restoreState()
 
 st.set_page_config(page_title="Torino Moda", page_icon="👔", layout="centered")
 st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
 
-branch = st.selectbox("🌍 اختر الفرع:", ["فرع الإمارات (AED)", "فرع عُمان (OMR)"])
-curr, discount = ("OMR", 2) if "عُمان" in branch else ("AED", 20)
+# القائمة المنسدلة المحدثة لجميع الفروع الخمسة
+branch = st.selectbox("🌍 اختر فرع العملة المطلوب العمل عليه:", [
+    "فرع الإمارات (درهم إماراتي AED)", 
+    "فرع عُمان (ريال عُماني OMR)",
+    "فرع السعودية (ريال سعودي SAR)",
+    "فرع البحرين (دينار بحريني BHD)",
+    "فرع تنزانيا (شلن تنزاني TZS)"
+])
+
+# ضبط الإعدادات البرمجية ديناميكياً لكل فرع وعملة بناءً على الشروط الجديدة
+if "عُمان" in branch:
+    curr, tax_rate, discount = "OMR", 1.05, 2
+elif "السعودية" in branch:
+    curr, tax_rate, discount = "SAR", 1.15, 20
+elif "البحرين" in branch:
+    curr, tax_rate, discount = "BHD", 1.10, 2
+elif "تنزانيا" in branch:
+    curr, tax_rate, discount = "TZS", 1.00, 10000
+else:
+    curr, tax_rate, discount = "AED", 1.05, 20
 
 file_in = st.file_uploader("1️⃣ رفع ملف المبيعات (products.xlsx):", type=["xlsx"])
 zip_in = st.file_uploader("2️⃣ اختياري: رفع مجلد الصور (Photo.zip):", type=["zip"])
@@ -43,7 +61,7 @@ if file_in is not None:
             with zipfile.ZipFile(zip_in, 'r') as archive:
                 for f_info in archive.infolist():
                     if not f_info.is_dir():
-                        photos[os.path.splitext(os.path.basename(f_info.filename))[0].strip()] = archive.read(f_info.filename)
+                        photos[os.path.splitext(os.path.basename(f_info.filename)).strip()] = archive.read(f_info.filename)
         except: pass
 
     try:
@@ -52,15 +70,14 @@ if file_in is not None:
         df.columns = cols
         df['date'] = pd.to_datetime(df['date'])
         
-        m_diff = (df['date'].max().year - df['date'].min().year) * 12 + (df['date'].max().month - df['date'].min().month) + 1
-        m_diff = max(1, m_diff)
-        t_ar = f"تقرير أفضل مبيع ({curr})"
+        t_ar = f"تقرير أفضل مبيع المصفى ({curr})"
 
         for c in ['ret_qty', 'sale_qty', 'sale_prc', 'ret_prc']:
             df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
 
-        df['s_mod'] = (df['sale_prc'] * 1.05).round()
-        df['r_mod'] = (df['ret_prc'] * 1.05).round()
+        # حساب السعر المحدث بالضرب في نسبة الضريبة الخاصة بكل فرع ثم التقريب لعدد صحيح
+        df['s_mod'] = (df['sale_prc'] * tax_rate).round()
+        df['r_mod'] = (df['ret_prc'] * tax_rate).round()
 
         b_map = df.dropna(subset=['base_name', 'base_prc']).drop_duplicates('base_name').set_index('base_name')['base_prc'].to_dict()
         s_map = df.dropna(subset=['stock_name', 'stock_qty']).drop_duplicates('stock_name').set_index('stock_name')['stock_qty'].to_dict()
@@ -90,7 +107,7 @@ if file_in is not None:
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
 
         hds = [Paragraph("Photo", hd_s), Paragraph("Item", hd_s), Paragraph(fix_arabic("الصافي"), hd_s), Paragraph(fix_arabic("الرصيد"), hd_s)]
-        c_w = [50, 85, 65, 60]
+        c_w = [int(w) for w in "50 85 65 60".split()]
         
         rows = []
         for _, r in top30.iterrows():
@@ -112,13 +129,16 @@ if file_in is not None:
             t_right = Table([hds] + r_data, colWidths=c_w)
             t_right.setStyle(ts)
             
-            m_tab = Table([[t_left, Paragraph("", cell_s), t_right]], colWidths=[260, 20, 260])
-            m_tab.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 15)]))
+            m_w = [int(w) for w in "260 20 260".split()]
+            m_tab = Table([[t_left, Paragraph("", cell_s), t_right]], colWidths=m_w)
+            
+            m_style = TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 15)])
+            m_tab.setStyle(m_style)
             story.append(m_tab)
             
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         buf.seek(0)
-        st.success("🎉 تم بنجاح!")
-        st.download_button(label="📥 تحميل التقرير", data=buf, file_name=f"Report_{curr}.pdf", mime="application/pdf")
+        st.success("🎉 تم توليد تقرير فرع " + curr + " بنجاح!")
+        st.download_button(label="📥 تحميل التقرير بصيغة PDF", data=buf, file_name=f"Report_{curr}.pdf", mime="application/pdf")
     except Exception as err:
         st.error(f"خطأ: {err}")
