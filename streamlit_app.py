@@ -16,13 +16,13 @@ def add_page_number(canvas, doc):
     canvas.saveState()
     canvas.setFont('Helvetica', 9)
     canvas.setFillColor(colors.HexColor('#718096'))
-    canvas.drawRightString(letter - 36, 20, f"Page {canvas.getPageNumber()}")
+    canvas.drawRightString(letter[0] - 36, 20, f"Page {canvas.getPageNumber()}")
     canvas.restoreState()
 
 st.set_page_config(page_title="Torino Moda", page_icon="👔", layout="centered")
 st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
 
-# القائمة المنسدلة المحدثة لجميع الفروع الخمسة
+# القائمة المنسدلة لجميع الفروع الخمسة
 branch = st.selectbox("🌍 اختر فرع العملة المطلوب العمل عليه:", [
     "فرع الإمارات (درهم إماراتي AED)", 
     "فرع عُمان (ريال عُماني OMR)",
@@ -31,7 +31,7 @@ branch = st.selectbox("🌍 اختر فرع العملة المطلوب العم
     "فرع تنزانيا (شلن تنزاني TZS)"
 ])
 
-# ضبط الإعدادات البرمجية ديناميكياً لكل فرع وعملة بناءً على الشروط الجديدة
+# ضبط الإعدادات البرمجية ديناميكياً لكل فرع وعملة بناءً على الشروط المحددة
 if "عُمان" in branch:
     curr, tax_rate, discount = "OMR", 1.05, 2
 elif "السعودية" in branch:
@@ -61,7 +61,7 @@ if file_in is not None:
             with zipfile.ZipFile(zip_in, 'r') as archive:
                 for f_info in archive.infolist():
                     if not f_info.is_dir():
-                        photos[os.path.splitext(os.path.basename(f_info.filename)).strip()] = archive.read(f_info.filename)
+                        photos[os.path.splitext(os.path.basename(f_info.filename))[0].strip()] = archive.read(f_info.filename)
         except: pass
 
     try:
@@ -113,7 +113,14 @@ if file_in is not None:
         for _, r in top30.iterrows():
             nm = str(r['name']).strip()
             img = Image(io.BytesIO(photos[nm]), width=45, height=45) if nm in photos else Paragraph("", cell_s)
-            rows.append([img, Paragraph(fix_arabic(nm), cell_s), Paragraph(str(int(r['net'])), cell_style=cell_s), Paragraph(str(int(r['stock'])), cell_style=cell_s)])
+            
+            # [تم الإصلاح] تعديل صياغة المعلمات لاسم النمط ليصبح style بدلاً من cell_style لمنع ظهور خطأ التوقف
+            rows.append([
+                img, 
+                Paragraph(fix_arabic(nm), cell_s), 
+                Paragraph(str(int(r['net'])), style=cell_s), 
+                Paragraph(str(int(r['stock'])), style=cell_s)
+            ])
 
         ts = TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0'))])
 
@@ -130,11 +137,10 @@ if file_in is not None:
             t_right.setStyle(ts)
             
             m_w = [int(w) for w in "260 20 260".split()]
-            m_tab = Table([[t_left, Paragraph("", cell_s), t_right]], colWidths=m_w)
+            master_table = Table([[t_left, Paragraph("", cell_s), t_right]], colWidths=m_w)
             
-            m_style = TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 15)])
-            m_tab.setStyle(m_style)
-            story.append(m_tab)
+            master_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 15)]))
+            story.append(master_table)
             
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         buf.seek(0)
