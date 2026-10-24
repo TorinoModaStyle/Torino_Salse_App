@@ -1,9 +1,6 @@
-# install: pandas openpyxl reportlab arabic-reshaper python-bidi pillow
 import streamlit as st
 import pandas as pd
-import os
-import zipfile
-import arabic_reshaper
+import os, zipfile, io, arabic_reshaper
 from bidi.algorithm import get_display
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable, Image
@@ -11,12 +8,9 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-import io
 
-def fix_arabic(text):
-    if not isinstance(text, str):
-        text = str(text)
-    return get_display(arabic_reshaper.reshape(text))
+def fix_arabic(t):
+    return get_display(arabic_reshaper.reshape(str(t)))
 
 def add_page_number(canvas, doc):
     canvas.saveState()
@@ -25,164 +19,106 @@ def add_page_number(canvas, doc):
     canvas.drawRightString(letter[0] - 36, 20, f"Page {canvas.getPageNumber()}")
     canvas.restoreState()
 
-st.set_page_config(page_title="Torino Moda Style - Analytics", page_icon="👔", layout="centered")
+st.set_page_config(page_title="Torino Moda", page_icon="👔", layout="centered")
 st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
-st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل المبيعات الذكي وتوليد التقارير المصورة تلقائياً</h4>", unsafe_allow_html=True)
-st.write("---")
 
-uploaded_file = st.file_uploader("1️⃣ قم برفع ملف المبيعات (products.xlsx):", type=["xlsx"])
-uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد الصور مضغوطاً بصيغة (Photo.zip) لإظهار صور المنتجات:", type=["zip"])
+branch = st.selectbox("🌍 اختر الفرع:", ["فرع الإمارات (AED)", "فرع عُمان (OMR)"])
+curr, discount = ("OMR", 2) if "عُمان" in branch else ("AED", 20)
 
-if uploaded_file is not None:
-    st.info("جاري معالجة البيانات وتوليد التقرير... برجاء الانتظار ثواني")
-    
-    # ربط وتثبيت خط Segoe UI الجديد لدعم العربية والإنجليزية بشكل مثالي
+file_in = st.file_uploader("1️⃣ رفع ملف المبيعات (products.xlsx):", type=["xlsx"])
+zip_in = st.file_uploader("2️⃣ اختياري: رفع مجلد الصور (Photo.zip):", type=["zip"])
+
+if file_in is not None:
+    st.info("جاري معالجة البيانات...")
     font_name = 'Helvetica'
-    local_font_path = "segoeuireg.ttf"
-    if os.path.exists(local_font_path):
+    if os.path.exists("segoeuireg.ttf"):
         try:
-            pdfmetrics.registerFont(TTFont('SegoeArabic', local_font_path))
+            pdfmetrics.registerFont(TTFont('SegoeArabic', "segoeuireg.ttf"))
             font_name = 'SegoeArabic'
-        except:
-            pass
+        except: pass
 
-    extracted_photos = {}
-    if uploaded_zip is not None:
+    photos = {}
+    if zip_in is not None:
         try:
-            with zipfile.ZipFile(uploaded_zip, 'r') as archive:
-                for file_info in archive.infolist():
-                    if not file_info.is_dir():
-                        filename = os.path.basename(file_info.filename)
-                        name_without_ext, _ = os.path.splitext(filename)
-                        extracted_photos[name_without_ext.strip()] = archive.read(file_info.filename)
-        except:
-            pass
+            with zipfile.ZipFile(zip_in, 'r') as archive:
+                for f_info in archive.infolist():
+                    if not f_info.is_dir():
+                        photos[os.path.splitext(os.path.basename(f_info.filename))[0].strip()] = archive.read(f_info.filename)
+        except: pass
 
     try:
-        df = pd.read_excel(uploaded_file, usecols="A:J")
+        df = pd.read_excel(file_in, usecols="A:J")
+        cols = ['date', 'name', 'ret_qty', 'sale_qty', 'ret_prc', 'sale_prc', 'base_name', 'base_prc', 'stock_name', 'stock_qty']
+        df.columns = cols
+        df['date'] = pd.to_datetime(df['date'])
         
-        c1, c2, c3, c4, c5 = 'تاريخ الفاتورة', 'اسم المادة', 'كمية المرتجع', 'كمية المبيع', 'سعر المرتجع'
-        c6, c7, c8, c9, c10 = 'سعر المبيع', 'اسم المادة الأساسي', 'السعر الأساسي', 'مادة الرصيد', 'رصيد المادة'
-        
-        df.columns = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10]
-        df[c1] = pd.to_datetime(df[c1])
-        
-        min_date, max_date = df[c1].min(), df[c1].max()
-        months_diff = (max_date.year - min_date.year) * 12 + (max_date.month - min_date.month)
-        if max_date.day >= min_date.day: months_diff += 1
-        if months_diff <= 0: months_diff = 1
-        
-        if months_diff >= 12:
-            report_title_ar, report_title_en = "تقرير أفضل مبيع السنوي المصفى", "Top Selling Performance Report - Annual"
-        elif months_diff == 1:
-            report_title_ar, report_title_en = "تقرير أفضل مبيع لشهر واحد المصفى", "Top Selling Performance Report - 1 Month"
-        else:
-            report_title_ar, report_title_en = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى", f"Top Selling Performance Report - Last {months_diff} Months"
+        m_diff = (df['date'].max().year - df['date'].min().year) * 12 + (df['date'].max().month - df['date'].min().month) + 1
+        m_diff = max(1, m_diff)
+        t_ar = f"تقرير أفضل مبيع ({curr})"
 
-        for col in [c3, c4, c6, c5]:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        for c in ['ret_qty', 'sale_qty', 'sale_prc', 'ret_prc']:
+            df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
 
-        df['سعر المبيع المحدث'] = (df[c6] * 1.05).round()
-        df['سعر المرتجع المحدث'] = (df[c5] * 1.05).round()
+        df['s_mod'] = (df['sale_prc'] * 1.05).round()
+        df['r_mod'] = (df['ret_prc'] * 1.05).round()
 
-        base_price_map = df.dropna(subset=[c7, c8]).drop_duplicates(subset=[c7]).set_index(c7)[c8].to_dict()
-        stock_map = df.dropna(subset=[c9, c10]).drop_duplicates(subset=[c9]).set_index(c9)[c10].to_dict()
+        b_map = df.dropna(subset=['base_name', 'base_prc']).drop_duplicates('base_name').set_index('base_name')['base_prc'].to_dict()
+        s_map = df.dropna(subset=['stock_name', 'stock_qty']).drop_duplicates('stock_name').set_index('stock_name')['stock_qty'].to_dict()
 
-        df['السعر الأساسي الفعلي'] = df[c2].map(base_price_map)
-        df = df.dropna(subset=['السعر الأساسي الفعلي'])
+        df['b_act'] = df['name'].map(b_map)
+        df = df.dropna(subset=['b_act'])
 
-        df['مبيع_مقبول'] = df.apply(lambda r: r[c4] if r['سعر المبيع المحدث'] >= (r['السعر الأساسي الفعلي'] - 20) else 0, axis=1)
-        df['مرتجع_مقبول'] = df.apply(lambda r: r[c3] if r['سعر المرتجع المحدث'] >= (r['السعر الأساسي الفعلي'] - 20) else 0, axis=1)
+        df['ok_s'] = df.apply(lambda r: r['sale_qty'] if r['s_mod'] >= (r['b_act'] - discount) else 0, axis=1)
+        df['ok_r'] = df.apply(lambda r: r['ret_qty'] if r['r_mod'] >= (r['b_act'] - discount) else 0, axis=1)
 
-        agg_df = df.groupby(c2).agg({'مبيع_مقبول': 'sum', 'مرتجع_مقبول': 'sum'}).reset_index()
-        agg_df['صافي المبيعات'] = agg_df['مبيع_مقبول'] - agg_df['مرتجع_مقبول']
-        agg_df['رصيد المادة'] = agg_df[c2].map(stock_map).fillna(0)
+        agg = df.groupby('name').agg({'ok_s': 'sum', 'ok_r': 'sum'}).reset_index()
+        agg['net'] = agg['ok_s'] - agg['ok_r']
+        agg['stock'] = agg['name'].map(s_map).fillna(0)
+        top30 = agg.sort_values(by='net', ascending=False).head(30)
 
-        top_30 = agg_df.sort_values(by='صافي المبيعات', ascending=False).head(30)
-
-        pdf_buffer = io.BytesIO()
-        doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
         
-        title_style = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
-        subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
-        section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
-        cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
-        header_style = ParagraphStyle('HeaderCell', fontName=font_name, fontSize=9, leading=11, alignment=1, textColor=colors.white)
+        title_s = ParagraphStyle('T1', fontName='Helvetica-Bold', fontSize=24, alignment=1, spaceAfter=10)
+        sub_s = ParagraphStyle('T2', fontName=font_name, fontSize=11, alignment=1, spaceAfter=20, textColor=colors.HexColor('#D69E2E'))
+        cell_s = ParagraphStyle('C1', fontName=font_name, fontSize=9, alignment=1)
+        hd_s = ParagraphStyle('H1', fontName=font_name, fontSize=9, alignment=1, textColor=colors.white)
 
-        story.append(Paragraph("Torino Moda Style", title_style))
-        story.append(Paragraph(f"{fix_arabic(report_title_ar)} / {report_title_en}", subtitle_style))
+        story.append(Paragraph("Torino Moda Style", title_s))
+        story.append(Paragraph(fix_arabic(t_ar), sub_s))
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
-        story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
 
-        # تحسين النصوص وصياغتها البرمجية لتناسب المساحات تماماً
-        summary_headers = [
-            Paragraph("Photo", header_style), Paragraph("Item", header_style),
-            Paragraph(f"{fix_arabic('إجمالي الصافي')}<br/><font size='7'>(Net Sales)</font>", header_style),
-            Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
-        ]
+        hds = [Paragraph("Photo", hd_s), Paragraph("Item", hd_s), Paragraph(fix_arabic("الصافي"), hd_s), Paragraph(fix_arabic("الرصيد"), hd_s)]
+        c_w = [50, 85, 65, 60]
         
-        # أبعاد العرض للنصف الواحد (المجموع 260) لضمان اتساع الكلمات الكاملة
-        col_widths = list()
-        col_widths.append(50)
-        col_widths.append(85)
-        col_widths.append(65)
-        col_widths.append(60)
-        
-        all_rows_data = []
-        for idx, row in top_30.iterrows():
-            mat_name = str(row[c2]).strip()
-            img_flowable = Paragraph("", cell_style)
-            if mat_name in extracted_photos:
-                try:
-                    img_flowable = Image(io.BytesIO(extracted_photos[mat_name]), width=45, height=45)
-                except:
-                    pass
-            
-            all_rows_data.append([
-                img_flowable,
-                Paragraph(fix_arabic(mat_name), cell_style),
-                Paragraph(str(int(row['صافي المبيعات'])), cell_style),
-                Paragraph(str(int(row['رصيد المادة'])), cell_style)
-            ])
+        rows = []
+        for _, r in top30.iterrows():
+            nm = str(r['name']).strip()
+            img = Image(io.BytesIO(photos[nm]), width=45, height=45) if nm in photos else Paragraph("", cell_s)
+            rows.append([img, Paragraph(fix_arabic(nm), cell_s), Paragraph(str(int(r['net'])), cell_style=cell_s), Paragraph(str(int(r['stock'])), cell_style=cell_s)])
 
-        ts = TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0')),
-            ('TOPPADDING', (0,0), (-1,-1), 5),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 5)
-        ])
+        ts = TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0'))])
 
-        rows_per_page_side = 8
-        for i in range(0, len(all_rows_data), rows_per_page_side * 2):
-            page_items = all_rows_data[i:i + (rows_per_page_side * 2)]
-            left_side_data = page_items[:rows_per_page_side]
-            right_side_data = page_items[rows_per_page_side:]
+        for i in range(0, len(rows), 16):
+            p_items = rows[i:i+16]
+            l_data = p_items[:8]
+            r_data = p_items[8:]
+            while len(l_data) < 8: l_data.append([Paragraph("", cell_s)] * 4)
+            while len(r_data) < 8: r_data.append([Paragraph("", cell_s)] * 4)
             
-            left_table = Table([summary_headers] + left_side_data, colWidths=col_widths)
-            left_table.setStyle(ts)
+            t_left = Table([hds] + l_data, colWidths=c_w)
+            t_left.setStyle(ts)
+            t_right = Table([hds] + r_data, colWidths=c_w)
+            t_right.setStyle(ts)
             
-            if right_side_data:
-                right_table = Table([summary_headers] + right_side_data, colWidths=col_widths)
-                right_table.setStyle(ts)
-            else:
-                right_table = Table([[Paragraph("", cell_style)] * 4], colWidths=col_widths)
+            m_tab = Table([[t_left, Paragraph("", cell_s), t_right]], colWidths=[260, 20, 260])
+            m_tab.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 15)]))
+            story.append(m_tab)
             
-            master_widths = list()
-            master_widths.append(260)
-            master_widths.append(20)
-            master_widths.append(260)
-            
-            m_table = Table([[left_table, Paragraph("", cell_style), right_table]], colWidths=master_widths)
-            m_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 15)]))
-            story.append(m_table)
-
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
-        pdf_buffer.seek(0)
-
-        st.success("✨ تم توليد التقرير بنجاح بالخط الجديد!")
-        st.download_button(label="📥 تحميل التقرير (PDF)", data=pdf_buffer, file_name="Torino_Moda_Style_Report.pdf", mime="application/pdf")
-    except Exception as e:
-        st.error(f"خطأ: {e}")
+        buf.seek(0)
+        st.success("🎉 تم بنجاح!")
+        st.download_button(label="📥 تحميل التقرير", data=buf, file_name=f"Report_{curr}.pdf", mime="application/pdf")
+    except Exception as err:
+        st.error(f"خطأ: {err}")
