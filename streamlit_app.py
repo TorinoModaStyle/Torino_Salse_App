@@ -56,7 +56,6 @@ if file_in is not None:
             font_name = 'SegoeArabic'
         except: pass
 
-    # [تعديل 1] استعادة آلية قراءة الصور الأصلية من مجلد الـ zip المطابقة لكودك الأول تماماً
     photos = {}
     if zip_in is not None:
         try:
@@ -74,7 +73,6 @@ if file_in is not None:
         df.columns = cols
         df['date'] = pd.to_datetime(df['date'])
         
-        # [تعديل 3] استعادة حساب الفروق الزمنية بين التواريخ ديناميكياً لبناء عنوان التقرير الفرعي بدقة
         min_date, max_date = df['date'].min(), df['date'].max()
         months_diff = (max_date.year - min_date.year) * 12 + (max_date.month - min_date.month)
         if max_date.day >= min_date.day: months_diff += 1
@@ -134,8 +132,8 @@ if file_in is not None:
         rows = []
         for _, r in top30.iterrows():
             nm = str(r['name']).strip()
-            # [تعديل 1 و 2] استدعاء الصورة بالاسم المطابق وتكبير أبعاد عرضها إلى 55 لملء الخلية الجديدة الكبيرة
-            img = Image(io.BytesIO(photos[nm]), width=55, height=55) if nm in photos else Paragraph("", cell_s)
+            # [ضبط هندسي] تكبير حجم الصورة إلى 52 لتظهر واضحة وتناسب الارتفاع الجديد تماماً
+            img = Image(io.BytesIO(photos[nm]), width=52, height=52) if nm in photos else Paragraph("", cell_s)
             rows.append([
                 img, 
                 Paragraph(fix_arabic(nm), cell_s), 
@@ -143,14 +141,14 @@ if file_in is not None:
                 Paragraph(str(int(r['stock'])), style=cell_s)
             ])
 
-        # [تعديل 2] زيادة الحشو (Padding) إلى 16 علوياً وسفلياً لتكبير ارتفاع المربعات وملء الصفحة بالكامل بشكل أنيق
+        # [ضبط هندسي] تعيين الحشو على 11 علوياً وسفلياً لتكبير المربعات لأقصى حد مسموح ومناسب لحجم الصفحة دون فيضان
         ts = TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')), 
             ('ALIGN', (0,0), (-1,-1), 'CENTER'), 
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), 
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0')),
-            ('TOPPADDING', (0,0), (-1,-1), 16),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 16)
+            ('TOPPADDING', (0,0), (-1,-1), 11),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 11)
         ])
 
         for i in range(0, len(rows), 16):
@@ -174,7 +172,7 @@ if file_in is not None:
             
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         buf.seek(0)
-        st.success("🎉 تم توليد تقرير فرع " + curr + " بنجاح بالشكل الفاخر والتواريخ الدقيقة!")
+        st.success("🎉 تم توليد تقرير فرع " + curr + " بنجاح بالشكل الفاخر المتوازن والتاريخ الدقيق!")
         st.download_button(label=f"📥 تحميل التقرير بصيغة PDF ({curr})", data=buf, file_name=f"Report_{curr}.pdf", mime="application/pdf")
     except Exception as err:
         st.error(f"خطأ: {err}")
