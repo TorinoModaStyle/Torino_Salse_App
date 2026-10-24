@@ -39,19 +39,29 @@ uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد 
 if uploaded_file is not None:
     st.info("جاري معالجة البيانات وتوليد التقرير السحابي القياسي... برجاء الانتظار ثواني")
     
+    # قراءة خط القاهرة العربي المرفق بالمشروع بشكل صريح ومباشر لحل مشكلة المربعات
     font_name = 'Helvetica'
-    for possible_path in [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-        "/usr/share/fonts/X11/TTF/DejaVuSans.ttf"
-    ]:
-        if os.path.exists(possible_path):
-            try:
-                pdfmetrics.registerFont(TTFont('CloudArabic', possible_path))
-                font_name = 'CloudArabic'
-                break
-            except:
-                pass
+    local_font_path = "Cairo-Regular.ttf"
+    if os.path.exists(local_font_path):
+        try:
+            pdfmetrics.registerFont(TTFont('CloudArabic', local_font_path))
+            font_name = 'CloudArabic'
+        except:
+            pass
+    else:
+        # فحص المسارات الاحتياطية في حال لم يتم العثور على الخط محلياً
+        for possible_path in [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+            "/usr/share/fonts/X11/TTF/DejaVuSans.ttf"
+        ]:
+            if os.path.exists(possible_path):
+                try:
+                    pdfmetrics.registerFont(TTFont('CloudArabic', possible_path))
+                    font_name = 'CloudArabic'
+                    break
+                except:
+                    pass
 
     extracted_photos = {}
     if uploaded_zip is not None:
@@ -117,7 +127,8 @@ if uploaded_file is not None:
         subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
         section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
         cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
-        header_style = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1, textColor=colors.white)
+        # تعديل ترويسة الجدول لتعتمد على الخط الجديد لتدعم اللغة العربية
+        header_style = ParagraphStyle('HeaderCell', fontName=font_name, fontSize=9, leading=12, alignment=1, textColor=colors.white)
 
         story.append(Paragraph("Torino Moda Style", title_style))
         story.append(Paragraph(f"{fix_arabic(report_title_ar)} / {report_title_en}", subtitle_style))
@@ -157,7 +168,6 @@ if uploaded_file is not None:
             ]
             all_rows_data.append(row_cells)
 
-        # تجهيز نمط الجداول المشترك بشكل مسبق ومختصر لتفادي أي انقطاع بالنصوص
         ts = TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
@@ -186,27 +196,3 @@ if uploaded_file is not None:
                 right_table = Table([[Paragraph("", cell_style)] * 4], colWidths=col_widths)
             
             master_widths = list()
-            master_widths.append(260)
-            master_widths.append(20)
-            master_widths.append(260)
-            
-            master_page_table = Table([[left_table, Paragraph("", cell_style), right_table]], colWidths=master_widths)
-            master_page_table.setStyle(TableStyle([
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('LEFTPADDING', (0,0), (-1,-1), 0),
-                ('RIGHTPADDING', (0,0), (-1,-1), 0),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 15)
-            ]))
-            story.append(master_page_table)
-
-        doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
-        pdf_buffer.seek(0)
-        st.success("✨ تم توليد التقرير بنجاح!")
-        st.download_button(
-            label="📥 تحميل التقرير (PDF)",
-            data=pdf_buffer,
-            file_name="Torino_Moda_Style_Report.pdf",
-            mime="application/pdf"
-        )
-    except Exception as e:
-        st.error(f"حدث خطأ أثناء معالجة الملف: {e}")
