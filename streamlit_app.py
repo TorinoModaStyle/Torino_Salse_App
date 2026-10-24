@@ -16,7 +16,6 @@ def add_page_number(canvas, doc):
     canvas.saveState()
     canvas.setFont('Helvetica', 9)
     canvas.setFillColor(colors.HexColor('#718096'))
-    # [تم الإصلاح هنا] قراءة أبعاد الصفحة كأرقام لتجنب خطأ الترقيم في السيرفر
     page_width, page_height = letter
     canvas.drawRightString(page_width - 36, 20, f"Page {canvas.getPageNumber()}")
     canvas.restoreState()
@@ -57,13 +56,16 @@ if file_in is not None:
             font_name = 'SegoeArabic'
         except: pass
 
+    # [تعديل 1] استعادة آلية قراءة الصور الأصلية من مجلد الـ zip المطابقة لكودك الأول تماماً
     photos = {}
     if zip_in is not None:
         try:
             with zipfile.ZipFile(zip_in, 'r') as archive:
-                for f_info in archive.infolist():
-                    if not f_info.is_dir():
-                        photos[os.path.splitext(os.path.basename(f_info.filename)).strip()] = archive.read(f_info.filename)
+                for file_info in archive.infolist():
+                    if not file_info.is_dir():
+                        filename = os.path.basename(file_info.filename)
+                        name_without_ext, _ = os.path.splitext(filename)
+                        photos[name_without_ext.strip()] = archive.read(file_info.filename)
         except: pass
 
     try:
@@ -72,8 +74,18 @@ if file_in is not None:
         df.columns = cols
         df['date'] = pd.to_datetime(df['date'])
         
-        report_title_ar = f"تقرير أفضل مبيع المصفى ({curr})"
-        report_title_en = f"Top Selling Performance Report ({curr})"
+        # [تعديل 3] استعادة حساب الفروق الزمنية بين التواريخ ديناميكياً لبناء عنوان التقرير الفرعي بدقة
+        min_date, max_date = df['date'].min(), df['date'].max()
+        months_diff = (max_date.year - min_date.year) * 12 + (max_date.month - min_date.month)
+        if max_date.day >= min_date.day: months_diff += 1
+        if months_diff <= 0: months_diff = 1
+        
+        if months_diff >= 12:
+            report_title_ar, report_title_en = f"تقرير أفضل مبيع السنوي المصفى ({curr})", f"Top Selling Performance Report - Annual ({curr})"
+        elif months_diff == 1:
+            report_title_ar, report_title_en = f"تقرير أفضل مبيع لشهر واحد المصفى ({curr})", f"Top Selling Performance Report - 1 Month ({curr})"
+        else:
+            report_title_ar, report_title_en = f"تقرير أفضل مبيع آخر {months_diff} شهور المصفى ({curr})", f"Top Selling Performance Report - Last {months_diff} Months ({curr})"
 
         for c in ['ret_qty', 'sale_qty', 'sale_prc', 'ret_prc']:
             df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
@@ -122,7 +134,8 @@ if file_in is not None:
         rows = []
         for _, r in top30.iterrows():
             nm = str(r['name']).strip()
-            img = Image(io.BytesIO(photos[nm]), width=45, height=45) if nm in photos else Paragraph("", cell_s)
+            # [تعديل 1 و 2] استدعاء الصورة بالاسم المطابق وتكبير أبعاد عرضها إلى 55 لملء الخلية الجديدة الكبيرة
+            img = Image(io.BytesIO(photos[nm]), width=55, height=55) if nm in photos else Paragraph("", cell_s)
             rows.append([
                 img, 
                 Paragraph(fix_arabic(nm), cell_s), 
@@ -130,13 +143,14 @@ if file_in is not None:
                 Paragraph(str(int(r['stock'])), style=cell_s)
             ])
 
+        # [تعديل 2] زيادة الحشو (Padding) إلى 16 علوياً وسفلياً لتكبير ارتفاع المربعات وملء الصفحة بالكامل بشكل أنيق
         ts = TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')), 
             ('ALIGN', (0,0), (-1,-1), 'CENTER'), 
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), 
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0')),
-            ('TOPPADDING', (0,0), (-1,-1), 10),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 10)
+            ('TOPPADDING', (0,0), (-1,-1), 16),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 16)
         ])
 
         for i in range(0, len(rows), 16):
@@ -160,7 +174,7 @@ if file_in is not None:
             
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         buf.seek(0)
-        st.success("🎉 تم توليد تقرير فرع " + curr + " بنجاح بالشكل الفاخر النهائي!")
+        st.success("🎉 تم توليد تقرير فرع " + curr + " بنجاح بالشكل الفاخر والتواريخ الدقيقة!")
         st.download_button(label=f"📥 تحميل التقرير بصيغة PDF ({curr})", data=buf, file_name=f"Report_{curr}.pdf", mime="application/pdf")
     except Exception as err:
         st.error(f"خطأ: {err}")
