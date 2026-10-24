@@ -125,19 +125,19 @@ if uploaded_file is not None:
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
         story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
 
+        # ترويسة الجدول المعدل بدون: السعر الأساسي، إجمالي المبيعات، إجمالي المرتجعات
         summary_headers = [
             Paragraph("Photo", header_style),
             Paragraph("Item", header_style),
-            Paragraph(f"{fix_arabic('السعر الأساسي')}<br/><font size='7'>(Base Price)</font>", header_style),
-            Paragraph(f"{fix_arabic('إجمالي المبيعات')}<br/><font size='7'>(Total Sold)</font>", header_style),
-            Paragraph(f"{fix_arabic('إجمالي المرتجعات')}<br/><font size='7'>(Total Ret)</font>", header_style),
             Paragraph(f"{fix_arabic('صافي المبيعات')}<br/><font size='7'>(Net Sales)</font>", header_style),
             Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        col_widths = [55, 80, 80, 80, 80, 80, 85]
-        summary_table_data = [summary_headers]
+        # عرض الأعمدة الأربعة المتبقية ليناسب تقسيم الصفحة لـ قسمين متجاورين
+        col_widths = [50, 110, 55, 55] 
         
+        # إنشاء مصفوفة لكل المنتجات المحضرة للطباعة
+        all_rows_data = []
         for idx, row in top_30.iterrows():
             mat_name = str(row['اسم المادة']).strip()
             img_flowable = Paragraph("", cell_style)
@@ -145,39 +145,44 @@ if uploaded_file is not None:
             if mat_name in extracted_photos:
                 try:
                     img_data = io.BytesIO(extracted_photos[mat_name])
-                    img_flowable = Image(img_data, width=35, height=35)
+                    img_flowable = Image(img_data, width=45, height=45)
                 except:
                     pass
-
-            summary_table_data.append([
-                img_flowable, 
-                Paragraph(mat_name, cell_style),
-                Paragraph(str(int(row['السعر الأساسي'])), cell_style),
-                Paragraph(str(int(row['مبيع_مقبول'])), cell_style),
-                Paragraph(str(int(row['مرتجع_مقبول'])), cell_style),
+            
+            row_cells = [
+                img_flowable,
+                Paragraph(fix_arabic(mat_name), cell_style),
                 Paragraph(str(int(row['صافي المبيعات'])), cell_style),
                 Paragraph(str(int(row['رصيد المادة'])), cell_style)
-            ])
+            ]
+            all_rows_data.append(row_cells)
 
-        t_summary = Table(summary_table_data, colWidths=col_widths, repeatRows=1)
-        t_summary.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EDF2F7')]),
-            ('TOPPADDING', (0,1), (-1,-1), 6),
-            ('BOTTOMPADDING', (0,1), (-1,-1), 6)
-        ]))
-        story.append(t_summary)
-        doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
+        # تقسيم البيانات إلى قسمين (جدولين متجاورين في الصفحة الواحدة) وتوزيعها على الصفحات تلقائياً
+        rows_per_page_side = 8  # عدد الأسطر المناسب للقسم الواحد لضمان عدم تداخل الصفحات وفير المظهر المنسق
+        total_items = len(all_rows_data)
         
-        st.success("✓ تم معالجة وتصحيح التقرير سحابياً بنجاح تام!")
-        st.download_button(
-            label="Download PDF Report",
-            data=pdf_buffer.getvalue(),
-            file_name="sales_analysis_report.pdf",
-            mime="application/pdf"
-        )
-    except Exception as e:
-        st.error(f"Error: {e}")
+        for i in range(0, total_items, rows_per_page_side * 2):
+            page_items = all_rows_data[i:i + (rows_per_page_side * 2)]
+            
+            # شق البيانات لقسمين: يسار ويمين
+            left_side_data = page_items[:rows_per_page_side]
+            right_side_data = page_items[rows_per_page_side:]
+            
+            # بناء جدول القسم الأيسر
+            left_table_content = [summary_headers] + left_side_data
+            left_table = Table(left_table_content, colWidths=col_widths)
+            left_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E0')),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            
+            # بناء جدول القسم الأيمن (إذا وجدت بيانات متبقية له)
+            if right_side_data:
+                right_table_content = [summary_headers] + right_side_data
+                right_table = Table(right_table_content, colWidths=col_widths)
+                right_table.setStyle(TableStyle([
+git add streamlit_app.py && git commit -m "force absolute file save release" && git push origin main
