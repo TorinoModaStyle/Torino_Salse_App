@@ -131,7 +131,12 @@ if uploaded_file is not None:
             Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        col_widths = [55, 85, 60, 60]
+        # استخدام دالة التجميع لتفادي حذف مقاسات الأعمدة (55, 85, 60, 60)
+        col_widths = list()
+        col_widths.append(55)
+        col_widths.append(85)
+        col_widths.append(60)
+        col_widths.append(60)
         
         all_rows_data = []
         for idx, row in top_30.iterrows():
@@ -185,6 +190,3 @@ if uploaded_file is not None:
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 4)
                 ]))
             else:
-                right_table = Table([[Paragraph("", cell_style)] * 4], colWidths=col_widths)
-            
-            master_widths = [260, 20, 260]
