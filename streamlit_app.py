@@ -125,7 +125,7 @@ if uploaded_file is not None:
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
         story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
 
-        # ترويسة الجدول المعدل بدون: السعر الأساسي، إجمالي المبيعات، إجمالي المرتجعات
+        # ترويسة الجدول المعدل بدون الأعمدة الثلاثة الملغاة
         summary_headers = [
             Paragraph("Photo", header_style),
             Paragraph("Item", header_style),
@@ -133,10 +133,9 @@ if uploaded_file is not None:
             Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        # عرض الأعمدة الأربعة المتبقية ليناسب تقسيم الصفحة لـ قسمين متجاورين
-        col_widths = [50, 110, 55, 55] 
+        # أبعاد العرض لكل عمود في النصف الواحد من الصفحة
+        col_widths = [55, 95, 60, 60]
         
-        # إنشاء مصفوفة لكل المنتجات المحضرة للطباعة
         all_rows_data = []
         for idx, row in top_30.iterrows():
             mat_name = str(row['اسم المادة']).strip()
@@ -157,18 +156,17 @@ if uploaded_file is not None:
             ]
             all_rows_data.append(row_cells)
 
-        # تقسيم البيانات إلى قسمين (جدولين متجاورين في الصفحة الواحدة) وتوزيعها على الصفحات تلقائياً
-        rows_per_page_side = 8  # عدد الأسطر المناسب للقسم الواحد لضمان عدم تداخل الصفحات وفير المظهر المنسق
+        # تقسيم الجدول تلقائياً لعمودين منفصلين متجاورين بحد أقصى 8 عناصر لكل صفحة في الجانب الواحد
+        rows_per_page_side = 8
         total_items = len(all_rows_data)
         
         for i in range(0, total_items, rows_per_page_side * 2):
             page_items = all_rows_data[i:i + (rows_per_page_side * 2)]
             
-            # شق البيانات لقسمين: يسار ويمين
             left_side_data = page_items[:rows_per_page_side]
             right_side_data = page_items[rows_per_page_side:]
             
-            # بناء جدول القسم الأيسر
+            # النصف الأيسر
             left_table_content = [summary_headers] + left_side_data
             left_table = Table(left_table_content, colWidths=col_widths)
             left_table.setStyle(TableStyle([
@@ -180,8 +178,12 @@ if uploaded_file is not None:
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]))
             
-            # بناء جدول القسم الأيمن (إذا وجدت بيانات متبقية له)
+            # النصف الأيمن
             if right_side_data:
                 right_table_content = [summary_headers] + right_side_data
                 right_table = Table(right_table_content, colWidths=col_widths)
                 right_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E0')),
