@@ -16,7 +16,9 @@ def add_page_number(canvas, doc):
     canvas.saveState()
     canvas.setFont('Helvetica', 9)
     canvas.setFillColor(colors.HexColor('#718096'))
-    canvas.drawRightString(letter - 36, 20, f"Page {canvas.getPageNumber()}")
+    # [تم الإصلاح هنا] قراءة أبعاد الصفحة كأرقام لتجنب خطأ الترقيم في السيرفر
+    page_width, page_height = letter
+    canvas.drawRightString(page_width - 36, 20, f"Page {canvas.getPageNumber()}")
     canvas.restoreState()
 
 st.set_page_config(page_title="Torino Moda Style - Analytics", page_icon="👔", layout="centered")
@@ -108,7 +110,6 @@ if file_in is not None:
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
         story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_s))
 
-        # [تعديل نهائي] جعل كافة رؤوس الأعمدة تظهر باللغتين العربية والإنجليزية معاً بشكل متكامل
         hds = [
             Paragraph(f"{fix_arabic('الصورة')}<br/><font size='7'>(Photo)</font>", hd_s), 
             Paragraph(f"{fix_arabic('المادة')}<br/><font size='7'>(Item)</font>", hd_s), 
