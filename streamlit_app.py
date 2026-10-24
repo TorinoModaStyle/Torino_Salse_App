@@ -36,12 +36,13 @@ uploaded_zip = st.file_uploader("2️⃣ اختياري: قم برفع مجلد 
 if uploaded_file is not None:
     st.info("جاري معالجة البيانات وتوليد التقرير... برجاء الانتظار ثواني")
     
+    # ربط وتثبيت خط Segoe UI الجديد لدعم العربية والإنجليزية بشكل مثالي
     font_name = 'Helvetica'
-    local_font_path = "Cairo-Regular.ttf"
+    local_font_path = "segoeuireg.ttf"
     if os.path.exists(local_font_path):
         try:
-            pdfmetrics.registerFont(TTFont('CloudArabic', local_font_path))
-            font_name = 'CloudArabic'
+            pdfmetrics.registerFont(TTFont('SegoeArabic', local_font_path))
+            font_name = 'SegoeArabic'
         except:
             pass
 
@@ -107,22 +108,28 @@ if uploaded_file is not None:
         subtitle_style = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
         section_style = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
         cell_style = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
-        header_style = ParagraphStyle('HeaderCell', fontName=font_name, fontSize=9, leading=12, alignment=1, textColor=colors.white)
+        header_style = ParagraphStyle('HeaderCell', fontName=font_name, fontSize=9, leading=11, alignment=1, textColor=colors.white)
 
         story.append(Paragraph("Torino Moda Style", title_style))
         story.append(Paragraph(f"{fix_arabic(report_title_ar)} / {report_title_en}", subtitle_style))
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
         story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
 
+        # تحسين النصوص وصياغتها البرمجية لتناسب المساحات تماماً
         summary_headers = [
             Paragraph("Photo", header_style), Paragraph("Item", header_style),
-            Paragraph(f"{fix_arabic('صافي المبيعات')}<br/><font size='7'>(Net Sales)</font>", header_style),
+            Paragraph(f"{fix_arabic('إجمالي الصافي')}<br/><font size='7'>(Net Sales)</font>", header_style),
             Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        col_widths = list((55, 85, 60, 60))
-        all_rows_data = []
+        # أبعاد العرض للنصف الواحد (المجموع 260) لضمان اتساع الكلمات الكاملة
+        col_widths = list()
+        col_widths.append(50)
+        col_widths.append(85)
+        col_widths.append(65)
+        col_widths.append(60)
         
+        all_rows_data = []
         for idx, row in top_30.iterrows():
             mat_name = str(row[c2]).strip()
             img_flowable = Paragraph("", cell_style)
@@ -144,8 +151,8 @@ if uploaded_file is not None:
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0')),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4)
+            ('TOPPADDING', (0,0), (-1,-1), 5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 5)
         ])
 
         rows_per_page_side = 8
@@ -163,14 +170,19 @@ if uploaded_file is not None:
             else:
                 right_table = Table([[Paragraph("", cell_style)] * 4], colWidths=col_widths)
             
-            m_table = Table([[left_table, Paragraph("", cell_style), right_table]], colWidths=list((260, 20, 260)))
+            master_widths = list()
+            master_widths.append(260)
+            master_widths.append(20)
+            master_widths.append(260)
+            
+            m_table = Table([[left_table, Paragraph("", cell_style), right_table]], colWidths=master_widths)
             m_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 15)]))
             story.append(m_table)
 
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         pdf_buffer.seek(0)
 
-        st.success("✨ تم توليد التقرير بنجاح!")
+        st.success("✨ تم توليد التقرير بنجاح بالخط الجديد!")
         st.download_button(label="📥 تحميل التقرير (PDF)", data=pdf_buffer, file_name="Torino_Moda_Style_Report.pdf", mime="application/pdf")
     except Exception as e:
         st.error(f"خطأ: {e}")
