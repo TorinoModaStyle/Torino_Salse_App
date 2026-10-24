@@ -186,4 +186,3 @@ if uploaded_file is not None:
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-git add streamlit_app.py && git commit -m "force absolute file save release" && git push origin main
