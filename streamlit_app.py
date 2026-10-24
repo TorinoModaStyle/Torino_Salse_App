@@ -16,13 +16,14 @@ def add_page_number(canvas, doc):
     canvas.saveState()
     canvas.setFont('Helvetica', 9)
     canvas.setFillColor(colors.HexColor('#718096'))
-    canvas.drawRightString(letter[0] - 36, 20, f"Page {canvas.getPageNumber()}")
+    canvas.drawRightString(letter - 36, 20, f"Page {canvas.getPageNumber()}")
     canvas.restoreState()
 
-st.set_page_config(page_title="Torino Moda", page_icon="👔", layout="centered")
+st.set_page_config(page_title="Torino Moda Style - Analytics", page_icon="👔", layout="centered")
 st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
+st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل المبيعات الذكي وتوليد التقارير المصورة تلقائياً</h4>", unsafe_allow_html=True)
+st.write("---")
 
-# القائمة المنسدلة لجميع الفروع الخمسة
 branch = st.selectbox("🌍 اختر فرع العملة المطلوب العمل عليه:", [
     "فرع الإمارات (درهم إماراتي AED)", 
     "فرع عُمان (ريال عُماني OMR)",
@@ -31,7 +32,6 @@ branch = st.selectbox("🌍 اختر فرع العملة المطلوب العم
     "فرع تنزانيا (شلن تنزاني TZS)"
 ])
 
-# ضبط الإعدادات البرمجية ديناميكياً لكل فرع وعملة بناءً على الشروط المحددة
 if "عُمان" in branch:
     curr, tax_rate, discount = "OMR", 1.05, 2
 elif "السعودية" in branch:
@@ -47,7 +47,7 @@ file_in = st.file_uploader("1️⃣ رفع ملف المبيعات (products.xls
 zip_in = st.file_uploader("2️⃣ اختياري: رفع مجلد الصور (Photo.zip):", type=["zip"])
 
 if file_in is not None:
-    st.info("جاري معالجة البيانات...")
+    st.info("جاري معالجة البيانات وتوليد التقرير... برجاء الانتظار ثواني")
     font_name = 'Helvetica'
     if os.path.exists("segoeuireg.ttf"):
         try:
@@ -61,7 +61,7 @@ if file_in is not None:
             with zipfile.ZipFile(zip_in, 'r') as archive:
                 for f_info in archive.infolist():
                     if not f_info.is_dir():
-                        photos[os.path.splitext(os.path.basename(f_info.filename))[0].strip()] = archive.read(f_info.filename)
+                        photos[os.path.splitext(os.path.basename(f_info.filename)).strip()] = archive.read(f_info.filename)
         except: pass
 
     try:
@@ -70,12 +70,12 @@ if file_in is not None:
         df.columns = cols
         df['date'] = pd.to_datetime(df['date'])
         
-        t_ar = f"تقرير أفضل مبيع المصفى ({curr})"
+        report_title_ar = f"تقرير أفضل مبيع المصفى ({curr})"
+        report_title_en = f"Top Selling Performance Report ({curr})"
 
         for c in ['ret_qty', 'sale_qty', 'sale_prc', 'ret_prc']:
             df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
 
-        # حساب السعر المحدث بالضرب في نسبة الضريبة الخاصة بكل فرع ثم التقريب لعدد صحيح
         df['s_mod'] = (df['sale_prc'] * tax_rate).round()
         df['r_mod'] = (df['ret_prc'] * tax_rate).round()
 
@@ -97,24 +97,31 @@ if file_in is not None:
         doc = SimpleDocTemplate(buf, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=40, bottomMargin=40)
         story = []
         
-        title_s = ParagraphStyle('T1', fontName='Helvetica-Bold', fontSize=24, alignment=1, spaceAfter=10)
-        sub_s = ParagraphStyle('T2', fontName=font_name, fontSize=11, alignment=1, spaceAfter=20, textColor=colors.HexColor('#D69E2E'))
-        cell_s = ParagraphStyle('C1', fontName=font_name, fontSize=9, alignment=1)
-        hd_s = ParagraphStyle('H1', fontName=font_name, fontSize=9, alignment=1, textColor=colors.white)
+        title_s = ParagraphStyle('CompTitle', fontName='Helvetica-Bold', fontSize=26, leading=32, alignment=1, spaceAfter=12, textColor=colors.HexColor('#1A365D'))
+        sub_s = ParagraphStyle('SubTitle', fontName=font_name, fontSize=11, leading=15, alignment=1, spaceAfter=25, textColor=colors.HexColor('#D69E2E'))
+        section_s = ParagraphStyle('SecTitle', fontName=font_name, fontSize=13, alignment=1, spaceBefore=5, spaceAfter=15, textColor=colors.HexColor('#2B6CB0'))
+        cell_s = ParagraphStyle('Cell', fontName=font_name, fontSize=9, leading=12, alignment=1)
+        hd_s = ParagraphStyle('HeaderCell', fontName=font_name, fontSize=9, leading=11, alignment=1, textColor=colors.white)
 
         story.append(Paragraph("Torino Moda Style", title_s))
-        story.append(Paragraph(fix_arabic(t_ar), sub_s))
+        story.append(Paragraph(f"{fix_arabic(report_title_ar)} / {report_title_en}", sub_s))
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
+        story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_s))
 
-        hds = [Paragraph("Photo", hd_s), Paragraph("Item", hd_s), Paragraph(fix_arabic("الصافي"), hd_s), Paragraph(fix_arabic("الرصيد"), hd_s)]
-        c_w = [int(w) for w in "50 85 65 60".split()]
+        # [تعديل نهائي] جعل كافة رؤوس الأعمدة تظهر باللغتين العربية والإنجليزية معاً بشكل متكامل
+        hds = [
+            Paragraph(f"{fix_arabic('الصورة')}<br/><font size='7'>(Photo)</font>", hd_s), 
+            Paragraph(f"{fix_arabic('المادة')}<br/><font size='7'>(Item)</font>", hd_s), 
+            Paragraph(f"{fix_arabic('إجمالي الصافي')}<br/><font size='7'>(Net Sales)</font>", hd_s), 
+            Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", hd_s)
+        ]
+        
+        col_widths = [int(w) for w in "50 85 65 60".split()]
         
         rows = []
         for _, r in top30.iterrows():
             nm = str(r['name']).strip()
             img = Image(io.BytesIO(photos[nm]), width=45, height=45) if nm in photos else Paragraph("", cell_s)
-            
-            # [تم الإصلاح] تعديل صياغة المعلمات لاسم النمط ليصبح style بدلاً من cell_style لمنع ظهور خطأ التوقف
             rows.append([
                 img, 
                 Paragraph(fix_arabic(nm), cell_s), 
@@ -122,7 +129,14 @@ if file_in is not None:
                 Paragraph(str(int(r['stock'])), style=cell_s)
             ])
 
-        ts = TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0'))])
+        ts = TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1A365D')), 
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'), 
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), 
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E0')),
+            ('TOPPADDING', (0,0), (-1,-1), 10),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 10)
+        ])
 
         for i in range(0, len(rows), 16):
             p_items = rows[i:i+16]
@@ -131,20 +145,21 @@ if file_in is not None:
             while len(l_data) < 8: l_data.append([Paragraph("", cell_s)] * 4)
             while len(r_data) < 8: r_data.append([Paragraph("", cell_s)] * 4)
             
-            t_left = Table([hds] + l_data, colWidths=c_w)
+            t_left = Table([hds] + l_data, colWidths=col_widths)
             t_left.setStyle(ts)
-            t_right = Table([hds] + r_data, colWidths=c_w)
+            t_right = Table([hds] + r_data, colWidths=col_widths)
             t_right.setStyle(ts)
             
-            m_w = [int(w) for w in "260 20 260".split()]
-            master_table = Table([[t_left, Paragraph("", cell_s), t_right]], colWidths=m_w)
+            master_widths = [int(w) for w in "260 20 260".split()]
+            master_table = Table([[t_left, Paragraph("", cell_s), t_right]], colWidths=master_widths)
             
-            master_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 15)]))
+            master_style = TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('BOTTOMPADDING', (0,0), (-1,-1), 15)])
+            master_table.setStyle(master_style)
             story.append(master_table)
             
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
         buf.seek(0)
-        st.success("🎉 تم توليد تقرير فرع " + curr + " بنجاح!")
-        st.download_button(label="📥 تحميل التقرير بصيغة PDF", data=buf, file_name=f"Report_{curr}.pdf", mime="application/pdf")
+        st.success("🎉 تم توليد تقرير فرع " + curr + " بنجاح بالشكل الفاخر النهائي!")
+        st.download_button(label=f"📥 تحميل التقرير بصيغة PDF ({curr})", data=buf, file_name=f"Report_{curr}.pdf", mime="application/pdf")
     except Exception as err:
         st.error(f"خطأ: {err}")
