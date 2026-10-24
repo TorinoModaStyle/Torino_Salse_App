@@ -124,7 +124,6 @@ if uploaded_file is not None:
         story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1A365D'), spaceAfter=15))
         story.append(Paragraph(fix_arabic("قائمة أفضل 30 مادة مع الصور والرصيد الحالي (Top 30 Net Performance, Stock & Photos)"), section_style))
 
-        # ترويسة الأعمدة الأربعة المطلوبة فقط
         summary_headers = [
             Paragraph("Photo", header_style),
             Paragraph("Item", header_style),
@@ -132,8 +131,7 @@ if uploaded_file is not None:
             Paragraph(f"{fix_arabic('الرصيد الحالي')}<br/><font size='7'>(Current Stock)</font>", header_style)
         ]
         
-        # توزيع أبعاد الأعمدة بالتساوي للنصف الواحد (مجموعها 260)
-        col_widths = [55, 75, 65, 65]
+        col_widths = [50, 90, 60, 60]
         
         all_rows_data = []
         for idx, row in top_30.iterrows():
@@ -155,7 +153,6 @@ if uploaded_file is not None:
             ]
             all_rows_data.append(row_cells)
 
-        # تقسيم البيانات إلى قسمين متساويين لطباعتهما جنباً إلى جنب في الصفحة
         rows_per_page_side = 8
         total_items = len(all_rows_data)
         
@@ -165,7 +162,7 @@ if uploaded_file is not None:
             left_side_data = page_items[:rows_per_page_side]
             right_side_data = page_items[rows_per_page_side:]
             
-            # بناء جدول النصف الأيسر بالكامل بشكل صحيح
+            # بناء النصف الأيسر بالكامل مع إغلاق التنسيق
             left_table_content = [summary_headers] + left_side_data
             left_table = Table(left_table_content, colWidths=col_widths)
             left_table.setStyle(TableStyle([
@@ -174,10 +171,10 @@ if uploaded_file is not None:
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E0')),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4)
             ]))
             
-            # بناء جدول النصف الأيمن وإغلاق الأقواس بشكل سليم
+            # بناء النصف الأيمن بالكامل وبدون اختصار الأقواس
             if right_side_data:
                 right_table_content = [summary_headers] + right_side_data
                 right_table = Table(right_table_content, colWidths=col_widths)
@@ -187,3 +184,7 @@ if uploaded_file is not None:
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E0')),
                     ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4)
+                ]))
+            else:
+                right_table = Table([[Paragraph("", cell_style)] * 4], colWidths=col_widths)
