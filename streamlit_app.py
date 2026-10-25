@@ -71,12 +71,24 @@ if st.session_state.user_role == "inventory":
             st.write("عينة من بيانات الجرد:")
             st.dataframe(df_inventory.head(3))
             
-            barcode_input = st.text_input("قم بقراءة الباركود باستخدام القارئ هنا:", key="barcode_scan")
+                        # 2. حقول استقبال الباركود (آلي بالقارئ أو يدوياً بالكتابة)
+            col1, col2 = st.columns(2)
+            with col1:
+                barcode_scan = st.text_input("🤖 مسح تلقائي (ضع المؤشر هنا واستخدم القارئ):", key="barcode_scan_key")
+            with col2:
+                barcode_manual = st.text_input("✍️ إدخال يدوي (اكتب الباركود واضغط Enter إذا كان تالفاً):", key="barcode_manual_key")
             
-            if barcode_input:
-                st.info(f"الباركود المقروء الحالي: {barcode_input}")
-                barcode_len = len(barcode_input)
+            # تحديد الباركود النشط بناءً على الخانة التي تم استخدامها
+            barcode_input = ""
+            if barcode_scan:
+                barcode_input = barcode_scan
+            elif barcode_manual:
+                barcode_input = barcode_manual
                 
+            if barcode_input:
+                st.info(f"الباركود الجاري فحصُه: {barcode_input}")
+                barcode_len = len(barcode_input)
+
                 if barcode_len in [6, 8, 10]:
                     prod_code = barcode_input[0:6]
                     color_name = "لا يوجد"
