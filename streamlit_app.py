@@ -130,8 +130,8 @@ if st.session_state.user_role == "inventory":
                     elif barcode_len == 8:
                         matched_rows = df_inventory[(df_inventory["كود المنتج"].astype(str) == prod_code) & (df_inventory["اللون"].astype(str) == color_name)]
                     elif barcode_len == 10:
-                        matched_rows = df_inventory[(df_inventory["كود المنتج"].astype(str) == prod_code) & (df_inventory["اللون"].astype(str) == color_name) & (df_inventory["القياس"].astype(str) == str(size_code))]
-                    
+                        matched_rows = df_inventory[(df_inventory["كود المنتج"].astype(str).str.strip() == prod_code) & (df_inventory["اللون"].astype(str).str.strip() == color_name) & (df_inventory["القياس"].astype(str).str.strip() == str(size_code).strip())]
+
                     if matched_rows.empty:
                         st.error(f"🚨 تنبيه: الباركود مقروء ولكن المنتج غير موجود في ملف الجرد المحاسبي! (كود: {prod_code}، لون: {color_name}، قياس: {size_code})")
                     else:
