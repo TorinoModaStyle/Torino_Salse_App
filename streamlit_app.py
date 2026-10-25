@@ -125,12 +125,20 @@ if st.session_state.user_role == "inventory":
                         
                     st.write(f"🔍 تفكيك المنتج الممسوح: كود: {prod_code} | اللون: {color_name} | القياس: {size_code}")
                     
+                    # تجهيز أعمدة الإكسل وتحويلها لنصوص نظيفة خالية من الكسور (.0) والمسافات
+                    excel_codes = df_inventory["كود المنتج"].astype(str).str.strip()
+                    excel_colors = df_inventory["اللون"].astype(str).str.strip().str.lower()
+                    
+                    # معالجة عمود القياس للتخلص من أي كسر مثل 38.0 ليصبح 38 تماماً
+                    excel_sizes = df_inventory["القياس"].apply(lambda x: str(int(x)) if isinstance(x, (int, float)) and not pd.isna(x) and x == int(x) else str(x)).str.strip()
+
+                    # تنفيذ المطابقة بناءً على طول الباركود الممسوح
                     if barcode_len == 6:
-                        matched_rows = df_inventory[df_inventory["كود المنتج"].astype(str) == prod_code]
+                        matched_rows = df_inventory[excel_codes == prod_code.strip()]
                     elif barcode_len == 8:
-                        matched_rows = df_inventory[(df_inventory["كود المنتج"].astype(str) == prod_code) & (df_inventory["اللون"].astype(str) == color_name)]
+                        matched_rows = df_inventory[(excel_codes == prod_code.strip()) & (excel_colors == color_name.strip().lower())]
                     elif barcode_len == 10:
-                        matched_rows = df_inventory[(df_inventory["كود المنتج"].astype(str).str.strip() == prod_code) & (df_inventory["اللون"].astype(str).str.strip() == color_name) & (df_inventory["القياس"].astype(str).str.strip() == str(size_code).strip())]
+                        matched_rows = df_inventory[(excel_codes == prod_code.strip()) & (excel_colors == color_name.strip().lower()) & (excel_sizes == str(size_code).strip())]
 
                     if matched_rows.empty:
                         st.error(f"🚨 تنبيه: الباركود مقروء ولكن المنتج غير موجود في ملف الجرد المحاسبي! (كود: {prod_code}، لون: {color_name}، قياس: {size_code})")
