@@ -59,7 +59,7 @@ if not st.session_state.logged_in:
 # 3. توجيه الموظفين حسب الصلاحية
 # ==========================================
 if st.session_state.user_role == "inventory":
-    st.markdown("<h1 style='text-align: center; color: #1B2A47;'>Torino Moda Style</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #E1A73E;'>📦 نظام جرد البضاعة والمطابقة</h3>", unsafe_allow_html=True)
     # 1. واجهة رفع ملف الإكسل المستخرج من النظام المحاسبي
     uploaded_file = st.file_uploader("قم برفع ملف جرد النظام المحاسبي (Excel)", type=["xlsx", "xls"])
