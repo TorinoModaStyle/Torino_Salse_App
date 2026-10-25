@@ -10,6 +10,27 @@ from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
+# ==========================================
+# 1. نظام إدارة الجلسة والتحقق من الموظفين
+# ==========================================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.user_role = None
+
+def check_login(username, password):
+    # حساب موظف المبيعات
+    if username == "sales_user" and password == "sales123":
+        st.session_state.logged_in = True
+        st.session_state.user_role = "sales"
+        st.rerun()
+    # حساب موظف الجرد
+    elif username == "inventory_user" and password == "inventory123":
+        st.session_state.logged_in = True
+        st.session_state.user_role = "inventory"
+        st.rerun()
+    else:
+        st.error("اسم المستخدم أو كلمة المرور غير صحيحة!")
+
 def fix_arabic(t):
     return get_display(arabic_reshaper.reshape(str(t)))
 
@@ -22,6 +43,106 @@ def add_page_number(canvas, doc):
     canvas.restoreState()
 
 st.set_page_config(page_title="Torino Moda Style - Analytics", page_icon="👔", layout="centered")
+
+# ==========================================
+# 2. واجهة تسجيل الدخول وحظر الوصول
+# ==========================================
+if not st.session_state.logged_in:
+    st.subheader("تسجيل الدخول للنظام")
+    user_input = st.text_input("اسم المستخدم")
+    pass_input = st.text_input("كلمة المرور", type="password")
+    
+    if st.button("دخول"):
+        check_login(user_input, pass_input)
+    st.stop()  # يمنع تشغيل بقية التطبيق بالأسفل حتى يتم تسجيل الدخول
+# ==========================================
+# 3. توجيه الموظفين حسب الصلاحية
+# ==========================================
+if st.session_state.user_role == "inventory":
+    st.title("📦 نظام جرد البضاعة والمطابقة")
+    st.write("مرحباً بك في واجهة الجرد")
+    # 1. واجهة رفع ملف الإكسل المستخرج من النظام المحاسبي
+    uploaded_file = st.file_uploader("قم برفع ملف جرد النظام المحاسبي (Excel)", type=["xlsx", "xls"])
+    
+    if uploaded_file is not None:
+        try:
+            # قراءة ملف الإكسل وتخزينه في جدول بيانات DataFrame
+            df_inventory = pd.read_excel(uploaded_file)
+            st.success("تم رفع ملف الجرد بنجاح!")
+            
+            # عرض عينة صغيرة من الملف للتأكد من رفعه بشكل سليم
+            st.write("عينة من بيانات الجرد:")
+            st.dataframe(df_inventory.head(3))
+            
+            # 2. حقل استقبال قراءة الباركود من الموظف
+            barcode_input = st.text_input("قم بقراءة الباركود باستخدام القارئ هنا:", key="barcode_scan")
+            
+            if barcode_input:
+                st.info(f"الباركود المقروء الحالي: {barcode_input}")
+                            # 3. تفكيك خانات الباركود (الـ 10 خانات)
+                if len(barcode_input) == 10:
+                    prod_code = barcode_input[0:6]   # أول 6 خانات (كود المنتج)
+                    color_code = barcode_input[6:8]  # الخانة 7 و 8 (رمز اللون)
+                    size_code = barcode_input[8:10]  # الخانة 9 و 10 (القياس)
+                    
+                    # قاموس لربط رموز الألوان بأسماء الألوان (عدل الأسماء والرموز هنا لتطابق نظامك
+                    color_mapping = {
+                        "01": "Black", "02": "Silver", "03": "Gold", "04": "Beige", "05": "Navy",
+                        "06": "Gray", "07": "Red", "08": "Blue", "09": "Fuchia", "10": "White",
+                        "11": "Champagne", "12": "Brown", "13": "Camel", "14": "Green", "15": "Orange",
+                        "16": "Phosphoric", "17": "Light golden", "18": "Khaki", "19": "Maroon", "20": "Bronze",
+                        "21": "Pink", "22": "Purple", "23": "Light Beige", "24": "OLIVE", "25": "Yellow",
+                        "26": "Rainbow", "27": "Platinum", "28": "Dark Brown", "29": "Copper", "30": "Bronette",
+                        "31": "Espresso", "32": "Red Brown", "33": "Off White", "34": "Coffee", "35": "Dark Green",
+                        "36": "Nude", "37": "Tan", "38": "Pewter", "39": "Light Green", "40": "MUD",
+                        "41": "Light Gray", "42": "Apricot", "43": "Dark Pink", "44": "Light Black", "45": "Army Green",
+                        "46": "Cream", "47": "Peach", "48": "F.Green", "49": "CORAL", "50": "Dark Navy",
+                        "51": "Dark Grey", "52": "L.Blue", "53": "Rose Gold", "54": "Wine", "55": "Dark Gold",
+                        "56": "Sky Blue", "57": "Light Purple", "58": "Antique Gold", "59": "Antique Silver", "60": "Cuticolor",
+                        "61": "D-Black", "62": "D-Coffee", "63": "D-Maroon", "64": "D-Purple", "65": "L-Brown",
+                        "66": "L-Pink", "67": "L-Yellow", "68": "Silvery Grey", "69": "Turquoise", "70": "Yellow Brown",
+                        "71": "Stone", "72": "S.BLACK", "73": "D.Red", "74": "Black/White", "75": "Almond",
+                        "76": "K-serpentine", "77": "D.Beige", "78": "D.Pink", "79": "TIFFANY", "80": "L.KHAKI",
+                        "81": "D.KHAKI", "82": "GUN", "83": "multicolour", "84": "WHITE/BLACK", "85": "BLACK/CAMEL",
+                        "86": "CAMEL/BLACK", "87": "WHITE/CAMEL", "88": "D- BLUE", "89": "GRNNY", "90": "LEOPARD",
+                        "91": "L.GREY", "92": "L.COFFEE", "93": "COLOURFULL", "94": "TIGER", "95": "ZEBRA"
+                    }
+
+                    
+                    # تحويل رمز اللون إلى اسم اللون المقابل له
+                    color_name = color_mapping.get(color_code, "رمز لون غير معروف")
+                    
+                    st.write(f"🔍 تفكيل المنتج: كود: {prod_code} | اللون: {color_name} | القياس: {size_code}")
+                                        # 4. عملية المطابقة مع ملف الإكسل (الجرد المحاسبي)
+                    # البحث في ملف الإكسل عن السطر الذي يطابق (الكود الأساسي + اسم اللون + القياس)
+                    matched_rows = df_inventory[
+                        (df_inventory["كود المنتج"].astype(str) == prod_code) & 
+                        (df_inventory["اللون"].astype(str) == color_name) & 
+                        (df_inventory["القياس"].astype(str) == str(size_code))
+                    ]
+                    
+                    if matched_rows.empty:
+                        # التنبيه الأول: إذا كان الباركود غير موجود نهائياً في الجرد
+                        st.error(f"🚨 تنبيه: الباركود مقروء ولكن المنتج غير موجود في ملف الجرد المحاسبي! (كود: {prod_code}، لون: {color_name}، قياس: {size_code})")
+                    else:
+                        # الحصول على الكمية المسجلة بالنظام المحاسبي لهذا المنتج المحدد
+                        expected_qty = matched_rows.iloc[0]["الكمية"]
+                        
+                        # هنا نقوم بمحاكاة فحص العدد (يمكنك مستقبلاً ربطه بـ Session State لحساب القطع الممسوحة تلقائياً)
+                        st.success(f"✅ المنتج موجود في الجرد. الكمية المطلوبة في النظام المحاسبي هي: {expected_qty}")
+                        
+                        # التنبيه الثاني: إذا كانت الكمية صفر أو ناقصة (مثال توضيحي للمنطق)
+                        if expected_qty <= 0:
+                            st.error("⚠️ تنبيه: هذا المنتج مسجل بنقص أو كمية صفرية في الجرد المحاسبي!")
+
+                else:
+                    st.warning("⚠️ الباركود المقروء يجب أن يتكون من 10 خانات تماماً!")
+               
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء قراءة ملف الإكسل: {e}")
+
+    st.stop() # هذا السطر يمنع موظف الجرد من رؤية كود المبيعات الموجود بالأسفل
+
 st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
 st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل المبيعات الذكي وتوليد التقارير المصورة تلقائياً</h4>", unsafe_allow_html=True)
 st.write("---")
