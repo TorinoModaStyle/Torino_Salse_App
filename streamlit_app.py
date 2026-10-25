@@ -18,12 +18,10 @@ if "logged_in" not in st.session_state:
     st.session_state.user_role = None
 
 def check_login(username, password):
-    # حساب موظف المبيعات
     if username == "sales_user" and password == "sales123":
         st.session_state.logged_in = True
         st.session_state.user_role = "sales"
         st.rerun()
-    # حساب موظف الجرد
     elif username == "inventory_user" and password == "inventory123":
         st.session_state.logged_in = True
         st.session_state.user_role = "inventory"
@@ -54,38 +52,36 @@ if not st.session_state.logged_in:
     
     if st.button("دخول"):
         check_login(user_input, pass_input)
-    st.stop()  # يمنع تشغيل بقية التطبيق بالأسفل حتى يتم تسجيل الدخول
+    st.stop()
+
 # ==========================================
 # 3. توجيه الموظفين حسب الصلاحية
 # ==========================================
 if st.session_state.user_role == "inventory":
-    st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1B2A47;'>Torino Moda Style</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #E1A73E;'>📦 نظام جرد البضاعة والمطابقة</h3>", unsafe_allow_html=True)
-    # 1. واجهة رفع ملف الإكسل المستخرج من النظام المحاسبي
+    
     uploaded_file = st.file_uploader("قم برفع ملف جرد النظام المحاسبي (Excel)", type=["xlsx", "xls"])
     
     if uploaded_file is not None:
         try:
-            # قراءة ملف الإكسل وتخزينه في جدول بيانات DataFrame
             df_inventory = pd.read_excel(uploaded_file)
             st.success("تم رفع ملف الجرد بنجاح!")
             
-            # عرض عينة صغيرة من الملف للتأكد من رفعه بشكل سليم
             st.write("عينة من بيانات الجرد:")
             st.dataframe(df_inventory.head(3))
             
-            # 2. حقل استقبال قراءة الباركود من الموظف
             barcode_input = st.text_input("قم بقراءة الباركود باستخدام القارئ هنا:", key="barcode_scan")
             
             if barcode_input:
                 st.info(f"الباركود المقروء الحالي: {barcode_input}")
-                            # 3. تفكيك خانات الباركود (الـ 10 خانات)
-                if len(barcode_input) == 10:
-                    prod_code = barcode_input[0:6]   # أول 6 خانات (كود المنتج)
-                    color_code = barcode_input[6:8]  # الخانة 7 و 8 (رمز اللون)
-                    size_code = barcode_input[8:10]  # الخانة 9 و 10 (القياس)
+                barcode_len = len(barcode_input)
+                
+                if barcode_len in [6, 8, 10]:
+                    prod_code = barcode_input[0:6]
+                    color_name = "لا يوجد"
+                    size_code = "لا يوجد"
                     
-                    # قاموس لربط رموز الألوان بأسماء الألوان (عدل الأسماء والرموز هنا لتطابق نظامك
                     color_mapping = {
                         "01": "Black", "02": "Silver", "03": "Gold", "04": "Beige", "05": "Navy",
                         "06": "Gray", "07": "Red", "08": "Blue", "09": "Fuchia", "10": "White",
@@ -107,41 +103,38 @@ if st.session_state.user_role == "inventory":
                         "86": "CAMEL/BLACK", "87": "WHITE/CAMEL", "88": "D- BLUE", "89": "GRNNY", "90": "LEOPARD",
                         "91": "L.GREY", "92": "L.COFFEE", "93": "COLOURFULL", "94": "TIGER", "95": "ZEBRA"
                     }
-
                     
-                    # تحويل رمز اللون إلى اسم اللون المقابل له
-                    color_name = color_mapping.get(color_code, "رمز لون غير معروف")
+                    if barcode_len >= 8:
+                        color_code = barcode_input[6:8]
+                        color_name = color_mapping.get(color_code, "رمز لون غير معروف")
+                        
+                    if barcode_len == 10:
+                        size_code = barcode_input[8:10]
+                        
+                    st.write(f"🔍 تفكيك المنتج الممسوح: كود: {prod_code} | اللون: {color_name} | القياس: {size_code}")
                     
-                    st.write(f"🔍 تفكيل المنتج: كود: {prod_code} | اللون: {color_name} | القياس: {size_code}")
-                                        # 4. عملية المطابقة مع ملف الإكسل (الجرد المحاسبي)
-                    # البحث في ملف الإكسل عن السطر الذي يطابق (الكود الأساسي + اسم اللون + القياس)
-                    matched_rows = df_inventory[
-                        (df_inventory["كود المنتج"].astype(str) == prod_code) & 
-                        (df_inventory["اللون"].astype(str) == color_name) & 
-                        (df_inventory["القياس"].astype(str) == str(size_code))
-                    ]
+                    if barcode_len == 6:
+                        matched_rows = df_inventory[df_inventory["كود المنتج"].astype(str) == prod_code]
+                    elif barcode_len == 8:
+                        matched_rows = df_inventory[(df_inventory["كود المنتج"].astype(str) == prod_code) & (df_inventory["اللون"].astype(str) == color_name)]
+                    elif barcode_len == 10:
+                        matched_rows = df_inventory[(df_inventory["كود المنتج"].astype(str) == prod_code) & (df_inventory["اللون"].astype(str) == color_name) & (df_inventory["القياس"].astype(str) == str(size_code))]
                     
                     if matched_rows.empty:
-                        # التنبيه الأول: إذا كان الباركود غير موجود نهائياً في الجرد
                         st.error(f"🚨 تنبيه: الباركود مقروء ولكن المنتج غير موجود في ملف الجرد المحاسبي! (كود: {prod_code}، لون: {color_name}، قياس: {size_code})")
                     else:
-                        # الحصول على الكمية المسجلة بالنظام المحاسبي لهذا المنتج المحدد
                         expected_qty = matched_rows.iloc[0]["الكمية"]
-                        
-                        # هنا نقوم بمحاكاة فحص العدد (يمكنك مستقبلاً ربطه بـ Session State لحساب القطع الممسوحة تلقائياً)
                         st.success(f"✅ المنتج موجود في الجرد. الكمية المطلوبة في النظام المحاسبي هي: {expected_qty}")
                         
-                        # التنبيه الثاني: إذا كانت الكمية صفر أو ناقصة (مثال توضيحي للمنطق)
                         if expected_qty <= 0:
                             st.error("⚠️ تنبيه: هذا المنتج مسجل بنقص أو كمية صفرية في الجرد المحاسبي!")
-
                 else:
-                    st.warning("⚠️ الباركود المقروء يجب أن يتكون من 10 خانات تماماً!")
-               
+                    st.warning("⚠️ الباركود المقروء غير مدعوم! يجب أن يتكون من 6 أو 8 أو 10 خانات.")
+                    
         except Exception as e:
             st.error(f"حدث خطأ أثناء قراءة ملف الإكسل: {e}")
 
-    st.stop() # هذا السطر يمنع موظف الجرد من رؤية كود المبيعات الموجود بالأسفل
+    st.stop()
 
 st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
 st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل المبيعات الذكي وتوليد التقارير المصورة تلقائياً</h4>", unsafe_allow_html=True)
