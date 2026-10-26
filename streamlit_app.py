@@ -69,28 +69,30 @@ if st.session_state.user_role == "inventory":
             st.success("تم رفع ملف الجرد بنجاح!")
                         # أ. إنشاء مخزن ذكي صامت لحفظ الباركودات الممسوحة وعددها الفعلي
             import json
-            # جلب البيانات المخزنة احتياطياً في حال انقطع النت وعاد البرنامج للتشغيل
-            if "scanned_barcodes" not in st.session_state:
-                if os.path.exists("jard_backup.json"):
+            # جلب البيانات المخزنة واكتشاف التحديثات الحية للموظف الآخر تلقائياً
+            if os.path.exists("jard_backup.json"):
+                try:
                     with open("jard_backup.json", "r") as f:
-                        try:
-                            st.session_state.scanned_barcodes = json.load(f)
-                        except:
-                            st.session_state.scanned_barcodes = {}
-                else:
+                        st.session_state.scanned_barcodes = json.load(f)
+                except:
+                    if "scanned_barcodes" not in st.session_state:
+                        st.session_state.scanned_barcodes = {}
+            else:
+                if "scanned_barcodes" not in st.session_state:
                     st.session_state.scanned_barcodes = {}
                     
             if "jard_completed" not in st.session_state:
                 st.session_state.jard_completed = False
 
             # ب. دالة مطورة ومسرعة تحفظ نسخة احتياطية فورية ضد انقطاع الإنترنت
+            # ب. دالة مطورة ومسرعة تدمج وتزامن قراءات الموظفين معاً حياً بدون تداخل
             def process_and_clear():
                 raw_barcode = st.session_state.barcode_scan_key or st.session_state.barcode_manual_key
                 if raw_barcode:
                     barcode = str(raw_barcode).strip()
                     b_len = len(barcode)
                     
-                    if b_len in[6, 8, 10]:
+                    if b_len in [6, 8, 10]:
                         b_code = barcode[0:6]
                         b_color = "Black"
                         b_size = "0"
@@ -102,16 +104,29 @@ if st.session_state.user_role == "inventory":
                             if b_size.startswith("0") and len(b_size) > 1:
                                 b_size = b_size[1:]
                         
-                        if barcode in st.session_state.scanned_barcodes:
-                            st.session_state.scanned_barcodes[barcode]["qty"] += 1
+                        # قراءة آخر ما مسحه الموظف الآخر من السيرفر قبل الإضافة لمنع التداخل
+                        current_scans = {}
+                        if os.path.exists("jard_backup.json"):
+                            try:
+                                with open("jard_backup.json", "r") as f:
+                                    current_scans = json.load(f)
+                            except:
+                                current_scans = st.session_state.scanned_barcodes
                         else:
-                            st.session_state.scanned_barcodes[barcode] = {
+                            current_scans = st.session_state.scanned_barcodes
+                        
+                        # دمج القطعة الجديدة مع القائمة المشتركة الحية
+                        if barcode in current_scans:
+                            current_scans[barcode]["qty"] += 1
+                        else:
+                            current_scans[barcode] = {
                                 "code": b_code, "color": b_color, "size": b_size, "qty": 1
                             }
                         
-                        # حفظ نسخة صلبة فورية لحماية البيانات ضد انقطاع الشبكة
+                        # تحديث الذاكرة المحلية والملف الاحتياطي فوراً ليراه الموظف الآخر
+                        st.session_state.scanned_barcodes = current_scans
                         with open("jard_backup.json", "w") as f:
-                            json.dump(st.session_state.scanned_barcodes, f)
+                            json.dump(current_scans, f)
                             
                 st.session_state.barcode_scan_key = ""
                 st.session_state.barcode_manual_key = ""
