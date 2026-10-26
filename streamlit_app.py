@@ -171,6 +171,8 @@ if st.session_state.user_role == "inventory":
                 if scanned_code:
                     barcode = str(scanned_code).strip()
                     b_len = len(barcode)
+            # --- نظام تصحيح الكاميرا الفوري ومنع التكرار اللانهائي ---
+         
                     if b_len in [6, 8, 10]:
                         b_code = barcode[0:6].strip().upper()
                         b_color = "BLACK"
@@ -211,8 +213,6 @@ if st.session_state.user_role == "inventory":
             # نقوم ببناء قائمة البيانات الجديدة لمطابقتها وعرضها
             jard_data = []
             
-
-
             # تتبع المواد الأصلية التي تم فحصها من الإكسل
             matched_indices = set()
             
@@ -302,6 +302,7 @@ if st.session_state.user_role == "inventory":
             st.write("📊 **جدول مقارنة الجرد الحي (9 أعمدة):**")
             st.dataframe(df_final_jard.style.apply(style_jard_rows, axis=1), use_container_width=True)
 
+                    # --- لوحة التصحيح السريع لقراءات الكاميرا الزائدة للموظف ---         
             st.write("---")
             # 1. زر إبلاغ البرنامج بانتهاء عملية الجرد بالكامل
             if not st.session_state.jard_completed:
@@ -344,8 +345,7 @@ if st.session_state.user_role == "inventory":
                         # حالة زيادة (تلوين السطر كاملاً بالأخضر)
                         elif diff_val > 0:
                             for c_idx in range(1, 10):
-                                worksheet.cell(row=r_idx, column=c_idx).fill = green_fill
-                                
+                                worksheet.cell(row=r_idx, column=c_idx).fill = green_fill                                
                 excel_data = output.getvalue()
                 
                 # عرض كبسة تحميل ملف الإكسل الملون والجاهز للموظف
