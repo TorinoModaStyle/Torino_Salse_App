@@ -171,19 +171,17 @@ if st.session_state.user_role == "inventory":
                 if scanned_code:
                     barcode = str(scanned_code).strip()
                     b_len = len(barcode)
-                    # --- نظام منع التكرار اللانهائي المحمي المطور لقطعة واحدة ---
-                    import time
-                    if "camera_cooldown" not in st.session_state:
-                        st.session_state.camera_cooldown = {}
+                    # --- نظام قفل الكاميرا الذكي ومنع التكرار المستمر المستقر ---
+                    if "last_recorded_barcode" not in st.session_state:
+                        st.session_state.last_recorded_barcode = None
                     
-                    current_time = time.time()
-                    if barcode in st.session_state.camera_cooldown:
-                        # زيادة المهلة إلى 6 ثوانٍ لضمان سحب الموظف للقطعة تماماً
-                        if current_time - st.session_state.camera_cooldown[barcode] < 6.0:
-                            st.stop() # إيقاف فوري لمنع تسجيل القراءة الثانية
+                    # إذا كان الباركود الممسوح هو نفس آخر باركود تم تسجيله، يتم قفله وتجاهله فوراً
+                    if barcode == st.session_state.last_recorded_barcode:
+                        st.stop()  # إيقاف فوري لمنع تسجيل القراءة الثانية أو التكرار اللانهائي
                     
-                    st.session_state.camera_cooldown[barcode] = current_time
-                    # --- نهاية نظام منع التكرار المطور ---
+                    # حفظ الباركود الحالي كآخر باركود مسجل لمنع تكراره في الإطارات القادمة
+                    st.session_state.last_recorded_barcode = barcode
+                    # --- نهاية نظام التثبيت القاطع ---
          
                     if b_len in [6, 8, 10]:
                         b_code = barcode[0:6].strip().upper()
@@ -352,7 +350,8 @@ if st.session_state.user_role == "inventory":
                             st.session_state.scanned_barcodes = current_scans
                             with open("jard_backup.json", "w") as f:
                                 json.dump(current_scans, f)
-                            st.rerun()
+                            st.session_state.last_recorded_barcode = None    
+                            st.rerun()                           
 
             # 1. زر إبلاغ البرنامج بانتهاء عملية الجرد بالكامل
             if not st.session_state.jard_completed:
