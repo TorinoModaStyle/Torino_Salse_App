@@ -171,19 +171,19 @@ if st.session_state.user_role == "inventory":
                 if scanned_code:
                     barcode = str(scanned_code).strip()
                     b_len = len(barcode)
-                    # --- نظام منع التكرار اللانهائي المحمي ---
+                    # --- نظام منع التكرار اللانهائي المحمي المطور لقطعة واحدة ---
                     import time
                     if "camera_cooldown" not in st.session_state:
                         st.session_state.camera_cooldown = {}
                     
                     current_time = time.time()
                     if barcode in st.session_state.camera_cooldown:
-                        if current_time - st.session_state.camera_cooldown[barcode] < 3.0:
-                            st.toast("⏳ تم قفل التكرار السريع للكاميرا...")
-                            st.stop()
+                        # زيادة المهلة إلى 6 ثوانٍ لضمان سحب الموظف للقطعة تماماً
+                        if current_time - st.session_state.camera_cooldown[barcode] < 6.0:
+                            st.stop() # إيقاف فوري لمنع تسجيل القراءة الثانية
                     
                     st.session_state.camera_cooldown[barcode] = current_time
-                    # --- نهاية نظام منع التكرار ---
+                    # --- نهاية نظام منع التكرار المطور ---
          
                     if b_len in [6, 8, 10]:
                         b_code = barcode[0:6].strip().upper()
@@ -320,7 +320,7 @@ if st.session_state.user_role == "inventory":
                 st.markdown("### 🛠️ لوحة التحكم وتصحيح قراءات الكاميرا المكررة")
                 st.write("إذا قامت الكاميرا بتكرار القراءة بالخطأ، أدخل الباركود الكامل هنا لتعديله أو حذفه:")
                 
-                fix_barcode = st.text_input("📝 أدخل الباركود الكامل للقطعة (المكتوب في الكاميرا):").strip()
+                fix_barcode = st.text_input("📝 أدخل الباركود الكامل للقطعة (المكتوب في الكاميرا):").strip().upper()
                 fix_action = st.radio("⚡ نوع الإجراء المطلوب:", ["تعديل الكمية المقروءة بالكامل", "حذف قراءات هذا الباركود نهائياً"], horizontal=True)
                 fix_qty = st.number_input("🔢 الكمية الصحيحة الفعلية الصادرة من الكاميرا:", min_value=1, value=1, step=1)
                 
