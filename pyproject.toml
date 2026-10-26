@@ -13,7 +13,7 @@ dependencies = [
     "arabic-reshaper",
     "python-bidi",
     "streamlit-qrcode-scanner",
-    "pillow"
+    "pillow",
 ]
 
 [tool.uv]
