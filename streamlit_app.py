@@ -171,7 +171,19 @@ if st.session_state.user_role == "inventory":
                 if scanned_code:
                     barcode = str(scanned_code).strip()
                     b_len = len(barcode)
-            # --- نظام تصحيح الكاميرا الفوري ومنع التكرار اللانهائي ---
+                    # --- نظام منع التكرار اللانهائي المحمي ---
+                    import time
+                    if "camera_cooldown" not in st.session_state:
+                        st.session_state.camera_cooldown = {}
+                    
+                    current_time = time.time()
+                    if barcode in st.session_state.camera_cooldown:
+                        if current_time - st.session_state.camera_cooldown[barcode] < 3.0:
+                            st.toast("⏳ تم قفل التكرار السريع للكاميرا...")
+                            st.stop()
+                    
+                    st.session_state.camera_cooldown[barcode] = current_time
+                    # --- نهاية نظام منع التكرار ---
          
                     if b_len in [6, 8, 10]:
                         b_code = barcode[0:6].strip().upper()
@@ -304,6 +316,44 @@ if st.session_state.user_role == "inventory":
 
                     # --- لوحة التصحيح السريع لقراءات الكاميرا الزائدة للموظف ---         
             st.write("---")
+            with st.form("inventory_manual_correction"):
+                st.markdown("### 🛠️ لوحة التحكم وتصحيح قراءات الكاميرا المكررة")
+                st.write("إذا قامت الكاميرا بتكرار القراءة بالخطأ، أدخل الباركود الكامل هنا لتعديله أو حذفه:")
+                
+                fix_barcode = st.text_input("📝 أدخل الباركود الكامل للقطعة (المكتوب في الكاميرا):").strip()
+                fix_action = st.radio("⚡ نوع الإجراء المطلوب:", ["تعديل الكمية المقروءة بالكامل", "حذف قراءات هذا الباركود نهائياً"], horizontal=True)
+                fix_qty = st.number_input("🔢 الكمية الصحيحة الفعلية الصادرة من الكاميرا:", min_value=1, value=1, step=1)
+                
+                submit_fix = st.form_submit_button("💾 تطبيق التصحيح فوراً وتحديث ملف الأمان")
+                
+                if submit_fix:
+                    if not fix_barcode:
+                        st.error("الرجاء إدخال الباركود المراد تصحيحه أولاً!")
+                    else:
+                        import os, json
+                        current_scans = st.session_state.scanned_barcodes
+                        if os.path.exists("jard_backup.json"):
+                            try:
+                                with open("jard_backup.json", "r") as f:
+                                    current_scans = json.load(f)
+                            except:
+                                pass
+                        
+                        if fix_barcode not in current_scans:
+                            st.warning(f"الباراكود '{fix_barcode}' غير موجود في قراءات الجرد الحالية الممسوحة للكاميرا.")
+                        else:
+                            if fix_action == "تعديل الكمية المقروءة بالكامل":
+                                current_scans[fix_barcode]["qty"] = fix_qty
+                                st.success(f"✅ تم تصحيح كمية الباركود {fix_barcode} إلى {fix_qty} في النظام بنجاح!")
+                            elif fix_action == "حذف قراءات هذا الباركود نهائياً":
+                                del current_scans[fix_barcode]
+                                st.success(f"🗑️ تم حذف الباركود {fix_barcode} نهائياً من الجرد!")
+                            
+                            st.session_state.scanned_barcodes = current_scans
+                            with open("jard_backup.json", "w") as f:
+                                json.dump(current_scans, f)
+                            st.rerun()
+
             # 1. زر إبلاغ البرنامج بانتهاء عملية الجرد بالكامل
             if not st.session_state.jard_completed:
                 if st.button("🏁 تأكيد إنهاء الجرد وإصدار التقرير الملون النهائي"):
