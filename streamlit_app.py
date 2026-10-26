@@ -106,16 +106,38 @@ if st.session_state.user_role == "inventory":
                 st.session_state.barcode_scan_key = ""
                 st.session_state.barcode_manual_key = ""
 
-            # ج. خيار احتياطي لتفعيل كاميرا الهاتف لقراءة الباركود عند الطوارئ
+            # ج. خيار احتياطي لتفعيل كاميرا الهاتف كقارئ باركود حي ومباشر
             enable_camera = st.checkbox("📸 تفعيل كاميرا الجوال كقارئ باركود احتياطي")
             
             if enable_camera:
-                cam_image = st.camera_input("وجه الكاميرا نحو باركود المادة بوضوح:")
-                if cam_image:
-                    # تلميح تقني: يمكنك مستقبلاً ربط مكتبة لفك رموز الصور (مثل pyzbar) 
-                    # لكن حالياً، لضمان أعلى سرعة للمتصفح، يمكن للموظف مطابقة القطعة 
-                    # أو كتابة رمزها في صندوق الإدخال اليدوي المريح بالأسفل.
-                    st.info("💡 الكاميرا نشطة وجاهزة لالتقاط وحفظ صور القطع التالفة.")
+                from streamlit_qrcode_scanner import qrcode_scanner
+                scanned_code = qrcode_scanner(key="live_barcode_scanner")
+                
+                if scanned_code:
+                    barcode = str(scanned_code).strip()
+                    st.success(f"🎯 تم التقاط باركود حي بنجاح: {barcode}")
+                    
+                    b_len = len(barcode)
+                    if b_len in [6, 8, 10]:
+                        b_code = barcode[0:6]
+                        b_color = "Black"
+                        b_size = "0"
+                        
+                        if b_len >= 8:
+                            b_color = "Black"
+                        if b_len == 10:
+                            b_size = barcode[8:10]
+                            if b_size.startswith("0") and len(b_size) > 1:
+                                b_size = b_size[1:]
+                                
+                        if barcode in st.session_state.scanned_barcodes:
+                            st.session_state.scanned_barcodes[barcode]["qty"] += 1
+                        else:
+                            st.session_state.scanned_barcodes[barcode] = {
+                            "code": b_code, "color": b_color, "size": b_size, "qty": 1
+                        }
+
+                        st.rerun()
 
             # ج. خانات الإدخال المحدثة والمربوطة بالتصفير الفوري التلقائي (on_change)
             col1, col2 = st.columns(2)
@@ -199,22 +221,16 @@ if st.session_state.user_role == "inventory":
                     if b_len in [6, 8, 10] and barcode[0:6] == orig_code:
                         matched_indices.add(barcode)
 
-            # 2. رصد وإضافة المواد الزائدة بالكامل (الممسوحة وغير موجودة في الإكسل)
-            for barcode, qty in st.session_state.scanned_barcodes.items():
+             # 2. رصد وإضافة المواد الزائدة بالكامل (الممسوحة وغير موجودة في الإكسل) لتتوافق مع السرعة الجديدة
+            for barcode, info in st.session_state.scanned_barcodes.items():
                 if barcode in matched_indices:
                     continue
                 
                 b_len = len(barcode)
-                b_code = barcode[0:6]
-                b_color = "لا يوجد"
-                b_size = "لا يوجد"
-                
-                if b_len >= 8:
-                    b_color = color_mapping.get(barcode[6:8], "رمز لون غير معروف")
-                if b_len == 10:
-                    b_size = barcode[8:10]
-                    if b_size.startswith("0") and len(b_size) > 1:
-                        b_size = b_size[1:]
+                b_code = info["code"]
+                b_color = info["color"]
+                b_size = info["size"]
+                qty = info["qty"]
                 
                 jard_data.append({
                     "كود المنتج": "", "اللون": "", "القياس": "", "الكمية": 0,
