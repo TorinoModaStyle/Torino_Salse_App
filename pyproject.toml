@@ -12,6 +12,7 @@ dependencies = [
     "reportlab",
     "arabic-reshaper",
     "python-bidi",
+    "streamlit-qrcode-scanner",
     "pillow"
 ]
 
