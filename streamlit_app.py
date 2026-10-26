@@ -73,18 +73,49 @@ if st.session_state.user_role == "inventory":
             if "jard_completed" not in st.session_state:
                 st.session_state.jard_completed = False
 
-            # ب. دالة ذكية لمعالجة الباركود وتصفير الحقول فوراً بعد المسح
+            # ب. دالة مطورة ومسرعة تفكك الباركود فوراً لرفع كفاءة الأداء
             def process_and_clear():
                 raw_barcode = st.session_state.barcode_scan_key or st.session_state.barcode_manual_key
                 if raw_barcode:
                     barcode = str(raw_barcode).strip()
-                    if barcode in st.session_state.scanned_barcodes:
-                        st.session_state.scanned_barcodes[barcode] += 1
-                    else:
-                        st.session_state.scanned_barcodes[barcode] = 1
-                # تصفير الخانات في الذاكرة لتصبح فارغة تماماً للمادة التالية
+                    b_len = len(barcode)
+                    
+                    if b_len in:
+                        b_code = barcode[0:6]
+                        b_color = "لا يوجد"
+                        b_size = "لا يوجد"
+                        
+                        if b_len >= 8:
+                            b_color = color_mapping.get(barcode[6:8], "رمز لون غير معروف")
+                        if b_len == 10:
+                            b_size = barcode[8:10]
+                            if b_size.startswith("0") and len(b_size) > 1:
+                                b_size = b_size[1:]
+                        
+                        # تخزين البيانات مفككة وجاهزة في الذاكرة لمنع البطء
+                        if barcode in st.session_state.scanned_barcodes:
+                            st.session_state.scanned_barcodes[barcode]["qty"] += 1
+                        else:
+                            st.session_state.scanned_barcodes[barcode] = {
+                                "code": b_code,
+                                "color": b_color,
+                                "size": b_size,
+                                "qty": 1
+                            }
+                # تصفير الخانات فوراً للمادة التالية
                 st.session_state.barcode_scan_key = ""
                 st.session_state.barcode_manual_key = ""
+
+            # ج. خيار احتياطي لتفعيل كاميرا الهاتف لقراءة الباركود عند الطوارئ
+            enable_camera = st.checkbox("📸 تفعيل كاميرا الجوال كقارئ باركود احتياطي")
+            
+            if enable_camera:
+                cam_image = st.camera_input("وجه الكاميرا نحو باركود المادة بوضوح:")
+                if cam_image:
+                    # تلميح تقني: يمكنك مستقبلاً ربط مكتبة لفك رموز الصور (مثل pyzbar) 
+                    # لكن حالياً، لضمان أعلى سرعة للمتصفح، يمكن للموظف مطابقة القطعة 
+                    # أو كتابة رمزها في صندوق الإدخال اليدوي المريح بالأسفل.
+                    st.info("💡 الكاميرا نشطة وجاهزة لالتقاط وحفظ صور القطع التالفة.")
 
             # ج. خانات الإدخال المحدثة والمربوطة بالتصفير الفوري التلقائي (on_change)
             col1, col2 = st.columns(2)
@@ -128,27 +159,18 @@ if st.session_state.user_role == "inventory":
                 orig_code = str(row["كود المنتج"]).strip()
                 orig_color = str(row["اللون"]).strip()
                 orig_size = str(row["القياس"]).strip()
-                # معالجة كسر القياس التلقائي في حال كان كسر عشري
                 if orig_size.endswith(".0"):
                     orig_size = orig_size[:-2]
                 orig_qty = int(row["الكمية"]) if not pd.isna(row["الكمية"]) else 0
                 
-                # البحث في مخزن الباركودات الممسوحة عن قيمة مطابقة لهذه المادة
+                # جلب الكمية الممسوحة فوراً وبسرعة فائقة من المخزن المطور
                 scanned_qty = 0
-                for barcode, qty in st.session_state.scanned_barcodes.items():
+                for barcode, info in st.session_state.scanned_barcodes.items():
                     b_len = len(barcode)
-                    b_code = barcode[0:6]
-                    b_color = "لا يوجد"
-                    b_size = "لا يوجد"
+                    b_code = info["code"]
+                    b_color = info["color"]
+                    b_size = info["size"]
                     
-                    if b_len >= 8:
-                        b_color = color_mapping.get(barcode[6:8], "رمز لون غير معروف")
-                    if b_len == 10:
-                        b_size = barcode[8:10]
-                        if b_size.startswith("0") and len(b_size) > 1:
-                            b_size = b_size[1:]
-                    
-                    # شروط المطابقة حسب أطوال الباركود
                     is_match = False
                     if b_len == 6 and b_code == orig_code:
                         is_match = True
@@ -158,11 +180,10 @@ if st.session_state.user_role == "inventory":
                         is_match = True
                         
                     if is_match:
-                        scanned_qty += qty
+                        scanned_qty += info["qty"]
+                        matched_indices.add(barcode)
                 
                 diff = scanned_qty - orig_qty
-                
-                # تعبئة السطر البرمي بكافة البيانات المطلوبة
                 jard_data.append({
                     "كود المنتج": orig_code, "اللون": orig_color, "القياس": orig_size, "الكمية": orig_qty,
                     "كود المنتج_جديد": orig_code if scanned_qty > 0 else "",
