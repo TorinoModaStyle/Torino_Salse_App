@@ -67,92 +67,232 @@ if st.session_state.user_role == "inventory":
         try:
             df_inventory = pd.read_excel(uploaded_file)
             st.success("تم رفع ملف الجرد بنجاح!")
-            
-            st.write("عينة من بيانات الجرد:")
-            st.dataframe(df_inventory.head(3))
-            
-                        # 2. حقول استقبال الباركود (آلي بالقارئ أو يدوياً بالكتابة)
+                        # أ. إنشاء مخزن ذكي صامت لحفظ الباركودات الممسوحة وعددها الفعلي
+            if "scanned_barcodes" not in st.session_state:
+                st.session_state.scanned_barcodes = {}
+            if "jard_completed" not in st.session_state:
+                st.session_state.jard_completed = False
+
+            # ب. دالة ذكية لمعالجة الباركود وتصفير الحقول فوراً بعد المسح
+            def process_and_clear():
+                raw_barcode = st.session_state.barcode_scan_key or st.session_state.barcode_manual_key
+                if raw_barcode:
+                    barcode = str(raw_barcode).strip()
+                    if barcode in st.session_state.scanned_barcodes:
+                        st.session_state.scanned_barcodes[barcode] += 1
+                    else:
+                        st.session_state.scanned_barcodes[barcode] = 1
+                # تصفير الخانات في الذاكرة لتصبح فارغة تماماً للمادة التالية
+                st.session_state.barcode_scan_key = ""
+                st.session_state.barcode_manual_key = ""
+
+            # ج. خانات الإدخال المحدثة والمربوطة بالتصفير الفوري التلقائي (on_change)
             col1, col2 = st.columns(2)
             with col1:
-                barcode_scan = st.text_input("🤖 مسح تلقائي (ضع المؤشر هنا واستخدم القارئ):", key="barcode_scan_key")
+                st.text_input("🤖 مسح تلقائي (ضع المؤشر هنا واستخدم القارئ):", key="barcode_scan_key", on_change=process_and_clear)
             with col2:
-                barcode_manual = st.text_input("✍️ إدخال يدوي (اكتب الباركود واضغط Enter إذا كان تالفاً):", key="barcode_manual_key")
+                st.text_input("✍️ إدخال يدوي (اكتب الباركود واضغط Enter):", key="barcode_manual_key", on_change=process_and_clear)
+
+            # د. معالجة وتوليد الجدول المتكامل المكون من 9 أعمدة كاملة
+            # نقوم ببناء قائمة البيانات الجديدة لمطابقتها وعرضها
+            jard_data = []
             
-            # تحديد الباركود النشط بناءً على الخانة التي تم استخدامها
-            barcode_input = ""
-            if barcode_scan:
-                barcode_input = barcode_scan
-            elif barcode_manual:
-                barcode_input = barcode_manual
+            # قاموس رموز الألوان للترجمة العكسية أثناء بناء الجدول
+            color_mapping = {
+                "01": "Black", "02": "Silver", "03": "Gold", "04": "Beige", "05": "Navy",
+                "06": "Gray", "07": "Red", "08": "Blue", "09": "Fuchia", "10": "White",
+                "11": "Champagne", "12": "Brown", "13": "Camel", "14": "Green", "15": "Orange",
+                "16": "Phosphoric", "17": "Light golden", "18": "Khaki", "19": "Maroon", "20": "Bronze",
+                "21": "Pink", "22": "Purple", "23": "Light Beige", "24": "OLIVE", "25": "Yellow",
+                "26": "Rainbow", "27": "Platinum", "28": "Dark Brown", "29": "Copper", "30": "Bronette",
+                "31": "Espresso", "32": "Red Brown", "33": "Off White", "34": "Coffee", "35": "Dark Green",
+                "36": "Nude", "37": "Tan", "38": "Pewter", "39": "Light Green", "40": "MUD",
+                "41": "Light Gray", "42": "Apricot", "43": "Dark Pink", "44": "Light Black", "45": "Army Green",
+                "46": "Cream", "47": "Peach", "48": "F.Green", "49": "CORAL", "50": "Dark Navy",
+                "51": "Dark Grey", "52": "L.Blue", "53": "Rose Gold", "54": "Wine", "55": "Dark Gold",
+                "56": "Sky Blue", "57": "Light Purple", "58": "Antique Gold", "59": "Antique Silver", "60": "Cuticolor",
+                "61": "D-Black", "62": "D-Coffee", "63": "D-Maroon", "64": "D-Purple", "65": "L-Brown",
+                "66": "L-Pink", "67": "L-Yellow", "68": "Silvery Grey", "69": "Turquoise", "70": "Yellow Brown",
+                "71": "Stone", "72": "S.BLACK", "73": "D.Red", "74": "Black/White", "75": "Almond",
+                "76": "K-serpentine", "77": "D.Beige", "78": "D.Pink", "79": "TIFFANY", "80": "L.KHAKI",
+                "81": "D.KHAKI", "82": "GUN", "83": "multicolour", "84": "WHITE/BLACK", "85": "BLACK/CAMEL",
+                "86": "CAMEL/BLACK", "87": "WHITE/CAMEL", "88": "D- BLUE", "89": "GRNNY", "90": "LEOPARD",
+                "91": "L.GREY", "92": "L.COFFEE", "93": "COLOURFULL", "94": "TIGER", "95": "ZEBRA"
+            }
+
+            # تتبع المواد الأصلية التي تم فحصها من الإكسل
+            matched_indices = set()
+            
+            # 1. المرور أولاً على ملف الإكسل الأصلي وبناء المقارنات والأعمدة (A إلى I)
+            for idx, row in df_inventory.iterrows():
+                orig_code = str(row["كود المنتج"]).strip()
+                orig_color = str(row["اللون"]).strip()
+                orig_size = str(row["القياس"]).strip()
+                # معالجة كسر القياس التلقائي في حال كان كسر عشري
+                if orig_size.endswith(".0"):
+                    orig_size = orig_size[:-2]
+                orig_qty = int(row["الكمية"]) if not pd.isna(row["الكمية"]) else 0
                 
-            if barcode_input:
-                st.info(f"الباركود الجاري فحصُه: {barcode_input}")
-                barcode_len = len(barcode_input)
-
-                if barcode_len in [6, 8, 10]:
-                    prod_code = barcode_input[0:6]
-                    color_name = "لا يوجد"
-                    size_code = "لا يوجد"
+                # البحث في مخزن الباركودات الممسوحة عن قيمة مطابقة لهذه المادة
+                scanned_qty = 0
+                for barcode, qty in st.session_state.scanned_barcodes.items():
+                    b_len = len(barcode)
+                    b_code = barcode[0:6]
+                    b_color = "لا يوجد"
+                    b_size = "لا يوجد"
                     
-                    color_mapping = {
-                        "01": "Black", "02": "Silver", "03": "Gold", "04": "Beige", "05": "Navy",
-                        "06": "Gray", "07": "Red", "08": "Blue", "09": "Fuchia", "10": "White",
-                        "11": "Champagne", "12": "Brown", "13": "Camel", "14": "Green", "15": "Orange",
-                        "16": "Phosphoric", "17": "Light golden", "18": "Khaki", "19": "Maroon", "20": "Bronze",
-                        "21": "Pink", "22": "Purple", "23": "Light Beige", "24": "OLIVE", "25": "Yellow",
-                        "26": "Rainbow", "27": "Platinum", "28": "Dark Brown", "29": "Copper", "30": "Bronette",
-                        "31": "Espresso", "32": "Red Brown", "33": "Off White", "34": "Coffee", "35": "Dark Green",
-                        "36": "Nude", "37": "Tan", "38": "Pewter", "39": "Light Green", "40": "MUD",
-                        "41": "Light Gray", "42": "Apricot", "43": "Dark Pink", "44": "Light Black", "45": "Army Green",
-                        "46": "Cream", "47": "Peach", "48": "F.Green", "49": "CORAL", "50": "Dark Navy",
-                        "51": "Dark Grey", "52": "L.Blue", "53": "Rose Gold", "54": "Wine", "55": "Dark Gold",
-                        "56": "Sky Blue", "57": "Light Purple", "58": "Antique Gold", "59": "Antique Silver", "60": "Cuticolor",
-                        "61": "D-Black", "62": "D-Coffee", "63": "D-Maroon", "64": "D-Purple", "65": "L-Brown",
-                        "66": "L-Pink", "67": "L-Yellow", "68": "Silvery Grey", "69": "Turquoise", "70": "Yellow Brown",
-                        "71": "Stone", "72": "S.BLACK", "73": "D.Red", "74": "Black/White", "75": "Almond",
-                        "76": "K-serpentine", "77": "D.Beige", "78": "D.Pink", "79": "TIFFANY", "80": "L.KHAKI",
-                        "81": "D.KHAKI", "82": "GUN", "83": "multicolour", "84": "WHITE/BLACK", "85": "BLACK/CAMEL",
-                        "86": "CAMEL/BLACK", "87": "WHITE/CAMEL", "88": "D- BLUE", "89": "GRNNY", "90": "LEOPARD",
-                        "91": "L.GREY", "92": "L.COFFEE", "93": "COLOURFULL", "94": "TIGER", "95": "ZEBRA"
-                    }
+                    if b_len >= 8:
+                        b_color = color_mapping.get(barcode[6:8], "رمز لون غير معروف")
+                    if b_len == 10:
+                        b_size = barcode[8:10]
+                        if b_size.startswith("0") and len(b_size) > 1:
+                            b_size = b_size[1:]
                     
-                    if barcode_len >= 8:
-                        color_code = barcode_input[6:8]
-                        color_name = color_mapping.get(color_code, "رمز لون غير معروف")
+                    # شروط المطابقة حسب أطوال الباركود
+                    is_match = False
+                    if b_len == 6 and b_code == orig_code:
+                        is_match = True
+                    elif b_len == 8 and b_code == orig_code and b_color.lower() == orig_color.lower():
+                        is_match = True
+                    elif b_len == 10 and b_code == orig_code and b_color.lower() == orig_color.lower() and b_size == orig_size:
+                        is_match = True
                         
-                    if barcode_len == 10:
-                        size_code = barcode_input[8:10]
-                        
-                    st.write(f"🔍 تفكيك المنتج الممسوح: كود: {prod_code} | اللون: {color_name} | القياس: {size_code}")
-                    
-                    # تجهيز أعمدة الإكسل وتحويلها لنصوص نظيفة خالية من الكسور (.0) والمسافات
-                    excel_codes = df_inventory["كود المنتج"].astype(str).str.strip()
-                    excel_colors = df_inventory["اللون"].astype(str).str.strip().str.lower()
-                    
-                    # معالجة عمود القياس للتخلص من أي كسر مثل 38.0 ليصبح 38 تماماً
-                    excel_sizes = df_inventory["القياس"].apply(lambda x: str(int(x)) if isinstance(x, (int, float)) and not pd.isna(x) and x == int(x) else str(x)).str.strip()
+                    if is_match:
+                        scanned_qty += qty
+                
+                diff = scanned_qty - orig_qty
+                
+                # تعبئة السطر البرمي بكافة البيانات المطلوبة
+                jard_data.append({
+                    "كود المنتج": orig_code, "اللون": orig_color, "القياس": orig_size, "الكمية": orig_qty,
+                    "كود المنتج_جديد": orig_code if scanned_qty > 0 else "",
+                    "اللون_جديد": orig_color if scanned_qty > 0 else "",
+                    "القياس_جديد": orig_size if scanned_qty > 0 else "",
+                    "الكمية_جديدة": scanned_qty,
+                    "الفرق": diff
+                })
 
-                    # تنفيذ المطابقة بناءً على طول الباركود الممسوح
-                    if barcode_len == 6:
-                        matched_rows = df_inventory[excel_codes == prod_code.strip()]
-                    elif barcode_len == 8:
-                        matched_rows = df_inventory[(excel_codes == prod_code.strip()) & (excel_colors == color_name.strip().lower())]
-                    elif barcode_len == 10:
-                        matched_rows = df_inventory[(excel_codes == prod_code.strip()) & (excel_colors == color_name.strip().lower()) & (excel_sizes == str(size_code).strip())]
+                # حفظ الفهارس التي تمت مطابقتها
+                for barcode in st.session_state.scanned_barcodes:
+                    b_len = len(barcode)
+                    if b_len in [6, 8, 10] and barcode[0:6] == orig_code:
+                        matched_indices.add(barcode)
 
-                    if matched_rows.empty:
-                        st.error(f"🚨 تنبيه: الباركود مقروء ولكن المنتج غير موجود في ملف الجرد المحاسبي! (كود: {prod_code}، لون: {color_name}، قياس: {size_code})")
-                    else:
-                        expected_qty = matched_rows.iloc[0]["الكمية"]
-                        st.success(f"✅ المنتج موجود في الجرد. الكمية المطلوبة في النظام المحاسبي هي: {expected_qty}")
-                        
-                        if expected_qty <= 0:
-                            st.error("⚠️ تنبيه: هذا المنتج مسجل بنقص أو كمية صفرية في الجرد المحاسبي!")
-                else:
-                    st.warning("⚠️ الباركود المقروء غير مدعوم! يجب أن يتكون من 6 أو 8 أو 10 خانات.")
+            # 2. رصد وإضافة المواد الزائدة بالكامل (الممسوحة وغير موجودة في الإكسل)
+            for barcode, qty in st.session_state.scanned_barcodes.items():
+                if barcode in matched_indices:
+                    continue
+                
+                b_len = len(barcode)
+                b_code = barcode[0:6]
+                b_color = "لا يوجد"
+                b_size = "لا يوجد"
+                
+                if b_len >= 8:
+                    b_color = color_mapping.get(barcode[6:8], "رمز لون غير معروف")
+                if b_len == 10:
+                    b_size = barcode[8:10]
+                    if b_size.startswith("0") and len(b_size) > 1:
+                        b_size = b_size[1:]
+                
+                jard_data.append({
+                    "كود المنتج": "", "اللون": "", "القياس": "", "الكمية": 0,
+                    "كود المنتج_جديد": b_code,
+                    "اللون_جديد": b_color,
+                    "القياس_جديد": b_size,
+                    "الكمية_جديدة": qty,
+                    "الفرق": qty
+                })
+
+            # تحويل البيانات إلى جدول pandas DataFrame النهائي
+            df_final_jard = pd.DataFrame(jard_data)
+
+            # 3. دالة التلوين الذكي للأسطر بناءً على قيمة الفرق وحالة القراءة
+            def style_jard_rows(row):
+                styles = [''] * len(row)
+                diff_val = row["الفرق"]
+                orig_qty_val = row["الكمية"]
+                new_qty_val = row["الكمية_جديدة"]
+                
+                # حالة المادة المطلوبة ولم يقرأها الموظف إطلاقاً (عجز كامل)
+                if orig_qty_val > 0 and new_qty_val == 0:
+                    # تلوين الأعمدة الأصلية على اليمين باللون الأحمر الداكن
+                    for i in range(4):
+                        styles[i] = 'background-color: #FED7D7; color: #9B2C2C;'
+                # حالة النقص (الكمية المقروءة أقل من المطلوبة)
+                elif diff_val < 0:
+                    return ['background-color: #FFF5F5; color: #C53030; font-weight: bold;'] * len(row)
+                # حالة الزيادة أو البضاعة الزائدة بالكامل
+                elif diff_val > 0:
+                    return ['background-color: #F0FFF4; color: #22543D; font-weight: bold;'] * len(row)
+                
+                return styles
+
+            # عرض الجدول الملون المكون من 9 أعمدة بشكل تفاعلي حي
+            st.write("📊 **جدول مقارنة الجرد الحي (9 أعمدة):**")
+            st.dataframe(df_final_jard.style.apply(style_jard_rows, axis=1), use_container_width=True)
+
+            st.write("---")
+            # 1. زر إبلاغ البرنامج بانتهاء عملية الجرد بالكامل
+            if not st.session_state.jard_completed:
+                if st.button("🏁 تأكيد إنهاء الجرد وإصدار التقرير الملون النهائي"):
+                    st.session_state.jard_completed = True
+                    st.rerun()
+
+            # 2. في حال الضغط على زر الإنهاء، يتم توليد ملف الإكسل وتوفير زر التحميل
+            if st.session_state.jard_completed:
+                st.success("🎉 تم إنهاء الجرد بنجاح! جاري تحضير ملف التقرير الملون الحقيقي...")
+                
+                # إنشاء ملف الإكسل وتنسيقه بالألوان داخل الذاكرة
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df_final_jard.to_excel(writer, index=False, sheet_name='تقرير الجرد الملون')
                     
+                    # الوصول لتنسيقات الخلايا عبر openpyxl لتلوين الملف المفرغ
+                    workbook = writer.book
+                    worksheet = writer.sheets['تقرير الجرد الملون']
+                    
+                    # تعريف الألوان المستعملة للتصدير (أحمر خفيف وأخضر خفيف)
+                    from openpyxl.styles import PatternFill
+                    red_fill = PatternFill(start_color="FFD2D2", end_color="FFD2D2", fill_type="solid")
+                    green_fill = PatternFill(start_color="D2F8D2", end_color="D2F8D2", fill_type="solid")
+                    
+                    # المرور على الأسطر لتلوين الإكسل بناءً على قيمة الفرق (العمود التاسع والأخير)
+                    for r_idx, row_data in enumerate(jard_data, start=2):
+                        diff_val = row_data["الفرق"]
+                        orig_qty = row_data["الكمية"]
+                        new_qty = row_data["الكمية_جديدة"]
+                        
+                        # حالة عجز كامل (تلوين أول 4 أعمدة بالأحمر)
+                        if orig_qty > 0 and new_qty == 0:
+                            for c_idx in range(1, 5):
+                                worksheet.cell(row=r_idx, column=c_idx).fill = red_fill
+                        # حالة نقص (تلوين السطر كاملاً بالأحمر)
+                        elif diff_val < 0:
+                            for c_idx in range(1, 10):
+                                worksheet.cell(row=r_idx, column=c_idx).fill = red_fill
+                        # حالة زيادة (تلوين السطر كاملاً بالأخضر)
+                        elif diff_val > 0:
+                            for c_idx in range(1, 10):
+                                worksheet.cell(row=r_idx, column=c_idx).fill = green_fill
+                                
+                excel_data = output.getvalue()
+                
+                # عرض كبسة تحميل ملف الإكسل الملون والجاهز للموظف
+                st.download_button(
+                    label="📥 تحميل تقرير الجرد الملون (Excel)",
+                    data=excel_data,
+                    file_name="Torino_Final_Jard_Report.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+                
+                # خيار يتيح إعادة فتح الجرد مرة أخرى في حال الرغبة بالتعديل
+                if st.button("🔄 إعادة فتح الجرد للمسح مجدداً"):
+                    st.session_state.jard_completed = False
+                    st.rerun()
+
         except Exception as e:
-            st.error(f"حدث خطأ أثناء قراءة ملف الإكسل: {e}")
+            st.error(f"حدث خطأ أثناء معالجة الجرد: {e}")
 
     st.stop()
 
