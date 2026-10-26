@@ -80,7 +80,7 @@ if st.session_state.user_role == "inventory":
                     barcode = str(raw_barcode).strip()
                     b_len = len(barcode)
                     
-                    if b_len in:
+                    if b_len in [6, 8, 10]:
                         b_code = barcode[0:6]
                         b_color = "لا يوجد"
                         b_size = "لا يوجد"
