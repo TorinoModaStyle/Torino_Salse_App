@@ -140,14 +140,16 @@ if st.session_state.user_role == "inventory":
                             if b_size.startswith("0") and len(b_size) > 1:
                                 b_size = b_size[1:]
                                 
-                        if barcode in st.session_state.scanned_barcodes:
-                            st.session_state.scanned_barcodes[barcode]["qty"] += 1
-                        else:
-                            st.session_state.scanned_barcodes[barcode] = {
+                    if barcode in st.session_state.scanned_barcodes:
+                        st.session_state.scanned_barcodes[barcode]["qty"] += 1
+                    else:
+                        st.session_state.scanned_barcodes[barcode] = {
                             "code": b_code, "color": b_color, "size": b_size, "qty": 1
                         }
-
-                        st.rerun()
+                    
+                    # حفظ نسخة صلبة فورية لحماية بضاعة الكاميرا ضد انقطاع الشبكة والتعليق
+                    with open("jard_backup.json", "w") as f:
+                        json.dump(st.session_state.scanned_barcodes, f)
 
             # ج. خانات الإدخال المحدثة والمربوطة بالتصفير الفوري التلقائي (on_change)
             col1, col2 = st.columns(2)
