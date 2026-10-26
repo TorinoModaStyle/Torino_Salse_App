@@ -18,11 +18,11 @@ if "logged_in" not in st.session_state:
     st.session_state.user_role = None
 
 def check_login(username, password):
-    if username == "sales_user" and password == "sales123":
+    if username == "Aeman" and password == "Aeman2002":
         st.session_state.logged_in = True
         st.session_state.user_role = "sales"
         st.rerun()
-    elif username == "inventory_user" and password == "inventory123":
+    elif username == "Majd" and password == "Majd1995":
         st.session_state.logged_in = True
         st.session_state.user_role = "inventory"
         st.rerun()
