@@ -68,22 +68,32 @@ if st.session_state.user_role == "inventory":
             df_inventory = pd.read_excel(uploaded_file)
             st.success("تم رفع ملف الجرد بنجاح!")
                         # أ. إنشاء مخزن ذكي صامت لحفظ الباركودات الممسوحة وعددها الفعلي
+            import json
+            # جلب البيانات المخزنة احتياطياً في حال انقطع النت وعاد البرنامج للتشغيل
             if "scanned_barcodes" not in st.session_state:
-                st.session_state.scanned_barcodes = {}
+                if os.path.exists("jard_backup.json"):
+                    with open("jard_backup.json", "r") as f:
+                        try:
+                            st.session_state.scanned_barcodes = json.load(f)
+                        except:
+                            st.session_state.scanned_barcodes = {}
+                else:
+                    st.session_state.scanned_barcodes = {}
+                    
             if "jard_completed" not in st.session_state:
                 st.session_state.jard_completed = False
 
-            # ب. دالة مطورة ومسرعة تفكك الباركود فوراً لرفع كفاءة الأداء
+            # ب. دالة مطورة ومسرعة تحفظ نسخة احتياطية فورية ضد انقطاع الإنترنت
             def process_and_clear():
                 raw_barcode = st.session_state.barcode_scan_key or st.session_state.barcode_manual_key
                 if raw_barcode:
                     barcode = str(raw_barcode).strip()
                     b_len = len(barcode)
                     
-                    if b_len in [6, 8, 10]:
+                    if b_len in[6, 8, 10]:
                         b_code = barcode[0:6]
-                        b_color = "لا يوجد"
-                        b_size = "لا يوجد"
+                        b_color = "Black"
+                        b_size = "0"
                         
                         if b_len >= 8:
                             b_color = color_mapping.get(barcode[6:8], "رمز لون غير معروف")
@@ -92,17 +102,17 @@ if st.session_state.user_role == "inventory":
                             if b_size.startswith("0") and len(b_size) > 1:
                                 b_size = b_size[1:]
                         
-                        # تخزين البيانات مفككة وجاهزة في الذاكرة لمنع البطء
                         if barcode in st.session_state.scanned_barcodes:
                             st.session_state.scanned_barcodes[barcode]["qty"] += 1
                         else:
                             st.session_state.scanned_barcodes[barcode] = {
-                                "code": b_code,
-                                "color": b_color,
-                                "size": b_size,
-                                "qty": 1
+                                "code": b_code, "color": b_color, "size": b_size, "qty": 1
                             }
-                # تصفير الخانات فوراً للمادة التالية
+                        
+                        # حفظ نسخة صلبة فورية لحماية البيانات ضد انقطاع الشبكة
+                        with open("jard_backup.json", "w") as f:
+                            json.dump(st.session_state.scanned_barcodes, f)
+                            
                 st.session_state.barcode_scan_key = ""
                 st.session_state.barcode_manual_key = ""
 
@@ -323,8 +333,10 @@ if st.session_state.user_role == "inventory":
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
-                # خيار يتيح إعادة فتح الجرد مرة أخرى في حال الرغبة بالتعديل
                 if st.button("🔄 إعادة فتح الجرد للمسح مجدداً"):
+                    st.session_state.scanned_barcodes = {}
+                    if os.path.exists("jard_backup.json"):
+                        os.remove("jard_backup.json")
                     st.session_state.jard_completed = False
                     st.rerun()
 
