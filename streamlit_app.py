@@ -109,11 +109,16 @@ if st.session_state.user_role == "inventory":
             
             import json
             
-            # 1. [المخزن السحابي المشترك الفائق السرعة في ذاكرة السيرفر لربط الأجهزة]
-            if "global_server_scans" not in st.session_state:
-                st.session_state.global_server_scans = {}
-                
-            # المخزن المحلي الفوري لجهاز هذا الموظف فقط لضمان السرعة المطلقة
+            # [سطر التطهير الحاسم لتدمير الخطأ القديم في ذاكرة السيرفر وإجبار الجدول على الفتح]
+            # إذا وجد السيرفر المخزن القديم الذي يسبب التعليق، سيقوم بتصفيره فوراً لبدء جرد سليم خالي من الأخطاء
+            if "local_scans" in st.session_state and isinstance(st.session_state.local_scans, dict):
+                # فحص سريع: إذا كانت القراءات القديمة مسببة للخطأ، نقوم بتطهيرها فوراً
+                for k, v in list(st.session_state.local_scans.items()):
+                    if "code" in v and "size" in v and "len" not in v:
+                        st.session_state.local_scans = {}  # تصفير آمن فوري لقفل الخطأ
+                        break
+
+            # إعادة بناء المخزن المحلي النظيف والمتوافق مع النظام الجديد
             if "local_scans" not in st.session_state:
                 st.session_state.local_scans = {}
                     
