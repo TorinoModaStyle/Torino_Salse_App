@@ -58,8 +58,26 @@ if not st.session_state.logged_in:
 # 3. توجيه الموظفين حسب الصلاحية
 # ==========================================
 if st.session_state.user_role == "inventory":
-    st.markdown("<h1 style='text-align: center; color: #1B2A47;'>Torino Moda Style</h1>", unsafe_allow_html=True)
+    # عرض اللوغو بخلفيته البيضاء داخل إطار مستطيل متناسق يتسع للشعار كاملاً
+    col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])  # ضبط توزيع الأعمدة لتوسيع المساحة العرضية
+    with col_logo2:
+        if os.path.exists("logo.jpg"):
+            import base64
+            with open("logo.jpg", "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode()
+            # إطار مستطيل أبيض حقيقي بنسبة عرض ممتازة (420px عرض و 160px ارتفاع) مع احتواء الشعار بالكامل داخلها بمسافات أمان (padding)
+            st.markdown(
+                f'<div style="text-align: center; display: flex; justify-content: center; align-items: center; background-color: #FFFFFF; width: 100%; max-width: 420px; height: 160px; margin: 0 auto; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); overflow: hidden;">'
+                f'<img src="data:image/jpeg;base64,{encoded_string}" style="width: 90%; height: 90%; object-fit: contain;">'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.warning("⚠️ يرجى التأكد من تسمية ملف اللوغو logo.jpg ووضعه في المجلد الرئيسي")
+            
+    st.markdown("<h1 style='text-align: center; color: #1B2A47; margin-top: 15px;'>Torino Moda Style</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #E1A73E;'>📦 نظام جرد البضاعة والمطابقة</h3>", unsafe_allow_html=True)
+
             # قاموس رموز الألوان للترجمة العكسية أثناء بناء الجدول
     color_mapping = {
                 "01": "Black", "02": "Silver", "03": "Gold", "04": "Beige", "05": "Navy",
@@ -88,38 +106,25 @@ if st.session_state.user_role == "inventory":
         try:
             df_inventory = pd.read_excel(uploaded_file)
             st.success("تم رفع ملف الجرد بنجاح!")
-                        # أ. إنشاء مخزن ذكي صامت لحفظ الباركودات الممسوحة وعددها الفعلي
+            
             import json
-            # تهيئة المخازن في الذاكرة المؤقتة لمنع البطء والتعليق
-            if "scanned_barcodes" not in st.session_state:
+            # [نظام التأمين الحاسم ضد انقطاع الإنترنت وإغلاق الموقع]
+            # إذا انقطع الإنترنت أو أُغلق الموقع، نقوم فوراً باستعادة آخر حالة جرد محفوظة من الملف المشترك
+            if "local_scans" not in st.session_state:
                 if os.path.exists("jard_backup.json"):
                     try:
                         with open("jard_backup.json", "r") as f:
-                            st.session_state.scanned_barcodes = json.load(f)
+                            # شحن المخزن المحلي بآخر قراءات مدمجة ومزامنة تم حفظها قبل الفصل
+                            st.session_state.local_scans = json.load(f)
                     except:
-                        st.session_state.scanned_barcodes = {}
+                        st.session_state.local_scans = {}
                 else:
-                    st.session_state.scanned_barcodes = {}
+                    st.session_state.local_scans = {}
                     
             if "jard_completed" not in st.session_state:
                 st.session_state.jard_completed = False
 
-            # زر تفاعلي علوي لتحديث البيانات حياً ومزامنة قراءات الموظف الآخر فوراُ
-            col_ref1, col_ref2 = st.columns(2)
-            with col_ref2:
-                if st.button("🔄 تحديث جدول الجرد الحي"):
-                    if os.path.exists("jard_backup.json"):
-                        try:
-                            with open("jard_backup.json", "r") as f:
-                                st.session_state.scanned_barcodes = json.load(f)
-                            st.success("تمت المزامنة!")
-                            st.rerun()
-                        except:
-                            pass
-
-            # ب. دالة مطورة ومسرعة تحفظ نسخة احتياطية فورية ضد انقطاع الإنترنت
-            # ب. دالة مطورة ومسرعة تدمج وتزامن قراءات الموظفين معاً حياً بدون تداخل
-            # ب. دالة مطورة فائقة السرعة توحد الأحرف وتؤمن الكاميرا والقارئ معاً
+            # ب. دالة مطورة فائقة السرعة تنزل الباركود فوراً في مخزن الجهاز الحالي ليظهر في الجدول أمام الموظف مباشرة
             def process_and_clear():
                 raw_barcode = st.session_state.barcode_scan_key or st.session_state.barcode_manual_key
                 if raw_barcode:
@@ -139,29 +144,50 @@ if st.session_state.user_role == "inventory":
                             if b_size.startswith("0") and len(b_size) > 1:
                                 b_size = b_size[1:]
                         
-                        current_scans = {}
-                        if os.path.exists("jard_backup.json"):
-                            try:
-                                with open("jard_backup.json", "r") as f:
-                                    current_scans = json.load(f)
-                            except:
-                                current_scans = st.session_state.scanned_barcodes
+                        # التحديث فوري ومحلي فقط (يظهر في جدول هذا الموظف فوراً)
+                        if barcode in st.session_state.local_scans:
+                            st.session_state.local_scans[barcode]["qty"] += 1
                         else:
-                            current_scans = st.session_state.scanned_barcodes
-                        
-                        if barcode in current_scans:
-                            current_scans[barcode]["qty"] += 1
-                        else:
-                            current_scans[barcode] = {
+                            st.session_state.local_scans[barcode] = {
                                 "code": b_code, "color": b_color, "size": b_size, "qty": 1
                             }
-                        
-                        st.session_state.scanned_barcodes = current_scans
-                        with open("jard_backup.json", "w") as f:
-                            json.dump(current_scans, f)
                             
                 st.session_state.barcode_scan_key = ""
                 st.session_state.barcode_manual_key = ""
+
+            # زر المزامنة المطور: هو المسؤول الوحيد عن إرسال القراءات المحلية للملف وجلب قراءات الموظف الثاني ودمجها
+            col_ref1, col_ref2 = st.columns(2)
+            with col_ref2:
+                if st.button("🔄 تحديث جدول الجرد الحي ومزامنة القراءات"):
+                    # 1. جلب ما كتبه الموظف الآخر في الملف المشترك أولاً
+                    file_scans = {}
+                    if os.path.exists("jard_backup.json"):
+                        try:
+                            with open("jard_backup.json", "r") as f:
+                                file_scans = json.load(f)
+                        except:
+                            file_scans = {}
+
+                    # 2. دمج القراءات المحلية لهذا الجهاز مع القراءات القادمة من الملف المشترك (تراكمياً بدون مسح)
+                    # ننسخ أولاً قراءات الملف كقاعدة للدمج
+                    merged_scans = file_scans.copy()
+                    
+                    # نمر على كل الباركودات التي جردها هذا الموظف محلياً ونضيفها أو نزيد كميتها فوق قراءات الملف
+                    for barcode, info in st.session_state.local_scans.items():
+                        if barcode in merged_scans:
+                            # إذا جرد الموظف الآخر نفس الباركود، نأخذ القيمة الأكبر أو نجمعهم؟ (الأصح في الجرد المشترك هو الجمع التراكمي)
+                            # هنا نقوم بدمج الكمية المحلية مع كمية الموظف الآخر لكي لا يضيع جرد أي طرف
+                            merged_scans[barcode]["qty"] = file_scans[barcode]["qty"] + info["qty"]
+                        else:
+                            merged_scans[barcode] = info
+
+                    # 3. حفظ الناتج الكلي المدمج في الملف وفي ذاكرة الشاشة لكي يتحدث الجدول بالكامل
+                    st.session_state.local_scans = merged_scans
+                    with open("jard_backup.json", "w") as f:
+                        json.dump(merged_scans, f)
+                    
+                    st.success("🔄 تمت مزامنة ودمج القراءات بين الجهازين بنجاح دون حذف أي بيانات!")
+                    st.rerun()
 
             # ج. خيار احتياطي مدمج لتحديث قراءات الكاميرا الحية تلقائياً دون تعليق المتصفح
             enable_camera = st.checkbox("📸 تفعيل كاميرا الجوال كقارئ باركود احتياطي")
@@ -195,22 +221,14 @@ if st.session_state.user_role == "inventory":
                             if b_size.startswith("0") and len(b_size) > 1:
                                 b_size = b_size[1:]
                         
-                        current_scans = {}
-                        if os.path.exists("jard_backup.json"):
-                            try:
-                                with open("jard_backup.json", "r") as f: current_scans = json.load(f)
-                            except: current_scans = st.session_state.scanned_barcodes
-                        else: current_scans = st.session_state.scanned_barcodes
-                        
-                        if barcode in current_scans:
-                            current_scans[barcode]["qty"] += 1
-                        else:
-                            current_scans[barcode] = {"code": b_code, "color": b_color, "size": b_size, "qty": 1}
-                        
-                        st.session_state.scanned_barcodes = current_scans
-                        with open("jard_backup.json", "w") as f: json.dump(current_scans, f)
-                        st.success(f"🎯 تم التقاط وحفظ باركود الكاميرا بنجاح: {barcode}")
-                        st.rerun()
+                    # التحديث فوري ومحلي فقط من الكاميرا ليظهر بالجدول أمام هذا الموظف فوراً
+                    if barcode in st.session_state.local_scans:
+                        st.session_state.local_scans[barcode]["qty"] += 1
+                    else:
+                        st.session_state.local_scans[barcode] = {"code": b_code, "color": b_color, "size": b_size, "qty": 1}
+                    
+                    st.success(f"🎯 تم التقاط الباركود بالكاميرا ونزوله بالجدول المحلي: {barcode}")
+                    st.rerun()
 
             # ج. خانات الإدخال المحدثة والمربوطة بالتصفير الفوري التلقائي (on_change)
             col1, col2 = st.columns(2)
@@ -226,7 +244,24 @@ if st.session_state.user_role == "inventory":
             # تتبع المواد الأصلية التي تم فحصها من الإكسل
             matched_indices = set()
             
-            # 1. المرور أولاً على ملف الإكسل الأصلي وبناء المقارنات والأعمدة (A إلى I) مع توحيد الأحرف والسرعة الفائقة
+            # --- [تم الإصلاح الحاسم ومنع التكرار نهائياً عبر التجميع المسبق للقراءات] ---
+            scanned_totals = {}
+            for barcode, info in st.session_state.local_scans.items():
+                b_code = str(info["code"]).strip().upper()
+                b_color = str(info["color"]).strip().upper()
+                b_size = str(info["size"]).strip().upper()
+                qty = info["qty"]
+                
+                key = (b_code, b_color, b_size)
+                if key in scanned_totals:
+                    scanned_totals[key]["qty"] += qty
+                else:
+                    scanned_totals[key] = {"qty": qty, "barcode": barcode}
+
+            matched_keys = set()
+            jard_data = []
+
+            # 1. المرور أولاً على ملف الإكسل الأصلي وإنزال الكميات المجمعة أمامه (سطر بسطر دون أي تكرار)
             for idx, row in df_inventory.iterrows():
                 orig_code = str(row["كود المنتج"]).strip().upper()
                 orig_color = str(row["اللون"]).strip().upper()
@@ -235,24 +270,12 @@ if st.session_state.user_role == "inventory":
                     orig_size = orig_size[:-2]
                 orig_qty = int(row["الكمية"]) if not pd.isna(row["الكمية"]) else 0
                 
+                excel_key = (orig_code, orig_color, orig_size)
+                
                 scanned_qty = 0
-                for barcode, info in st.session_state.scanned_barcodes.items():
-                    b_len = len(barcode)
-                    b_code = str(info["code"]).strip().upper()
-                    b_color = str(info["color"]).strip().upper()
-                    b_size = str(info["size"]).strip().upper()
-                    
-                    is_match = False
-                    if b_len == 6 and b_code == orig_code:
-                        is_match = True
-                    elif b_len == 8 and b_code == orig_code and b_color == orig_color:
-                        is_match = True
-                    elif b_len == 10 and b_code == orig_code and b_color == orig_color and b_size == orig_size:
-                        is_match = True
-                        
-                    if is_match:
-                        scanned_qty += info["qty"]
-                        matched_indices.add(barcode)
+                if excel_key in scanned_totals:
+                    scanned_qty = scanned_totals[excel_key]["qty"]
+                    matched_keys.add(excel_key)
                 
                 diff = scanned_qty - orig_qty
                 jard_data.append({
@@ -264,15 +287,12 @@ if st.session_state.user_role == "inventory":
                     "الفرق": diff
                 })
 
-            # 2. رصد وإضافة المواد الزائدة بالكامل (الممسوحة وغير موجودة في الإكسل الأصلي)
-            for barcode, info in st.session_state.scanned_barcodes.items():
-                if barcode in matched_indices:
+            # 2. رصد وإضافة المواد الزائدة بالكامل (التي قُرأت بالباركود وغير موجودة نهائياً في الإكسل الأصلي)
+            for excel_key, info in scanned_totals.items():
+                if excel_key in matched_keys:
                     continue
                 
-                b_len = len(barcode)
-                b_code = str(info["code"]).strip().upper()
-                b_color = str(info["color"]).strip().upper()
-                b_size = str(info["size"]).strip().upper()
+                b_code, b_color, b_size = excel_key
                 qty = info["qty"]
                 
                 jard_data.append({
@@ -284,7 +304,7 @@ if st.session_state.user_role == "inventory":
                     "الفرق": qty
                 })
 
-            # تحويل البيانات إلى جدول pandas DataFrame النهائي
+            # تحويل البيانات إلى جدول pandas DataFrame النهائي المستقر
             df_final_jard = pd.DataFrame(jard_data)
 
             # 3. دالة التلوين الذكي للأسطر بناءً على قيمة الفرق وحالة القراءة
@@ -308,19 +328,68 @@ if st.session_state.user_role == "inventory":
                 
                 return styles
 
-            # عرض الجدول الملون المكون من 9 أعمدة بشكل تفاعلي حي
-            st.write("📊 **جدول مقارنة الجرد الحي (9 أعمدة):**")
-            st.dataframe(df_final_jard.style.apply(style_jard_rows, axis=1), use_container_width=True)
+            st.write("---")
+            st.markdown("### 🔍 بحث وتحديد موقع المادة في جدول الجرد")
+            
+            # 1. خانة البحث اليدوية (تقوم بالتصفية بناءً على طلبك في النقطة الرابعة فقط)
+            search_query = st.text_input("💡 اكتب كود المنتج، اللون، أو القياس لتصفية الجدول عند الحاجة:", key="jard_search_input").strip().upper()
+            
+            # بناء الجدول الكامل المكون من كافة الأسطر بترتيبها الأصلي الثابت بالأسفل
+            df_display = df_final_jard.copy()
+            
+            # 2. [التعديل الثالث الذكي والمعدل بدقة]: لوحة المتابعة البصرية الفورية للسطر الفعلي والوحيد للقطعة الممسوحة
+            if "local_scans" in st.session_state and st.session_state.local_scans and not search_query:
+                # جلب آخر باركود كامل تم مسحه (يحتوي على الكود واللون والمقاس)
+                last_scanned_barcode = list(st.session_state.local_scans.keys())[-1]
+                
+                # تفكيك الباركود بدقة لاستخراج القيم الفردية ومطابقتها مع الجدول
+                last_b_len = len(last_scanned_barcode)
+                last_b_code = str(last_scanned_barcode)[0:6].strip().upper()
+                last_b_color = "BLACK"
+                last_b_size = "0"
+                
+                if last_b_len >= 8:
+                    raw_col = color_mapping.get(last_scanned_barcode[6:8], "رمز لون غير معروف")
+                    last_b_color = str(raw_col).strip().upper()
+                if last_b_len == 10:
+                    last_b_size = last_scanned_barcode[8:10].strip()
+                    if last_b_size.startswith("0") and len(last_b_size) > 1:
+                        last_b_size = last_b_size[1:]
+                
+                # جلب السطر الفعلي الدقيق والوحيد الذي يطابق الكود واللون والقياس معاً (سطر واحد فقط)
+                df_focus = df_final_jard[
+                    ((df_final_jard["كود المنتج"] == last_b_code) & (df_final_jard["اللون"] == last_b_color) & (df_final_jard["القياس"] == last_b_size)) |
+                    ((df_final_jard["كود المنتج_جديد"] == last_b_code) & (df_final_jard["اللون_جديد"] == last_b_color) & (df_final_jard["القياس_جديد"] == last_b_size))
+                ]
+                
+                if not df_focus.empty:
+                    st.markdown("🎯 **بيانات القطعة الممسوحة حالياً (تحديث فوري للسطر الحالي فقط):**")
+                    # عرض السطر المنفرد المختار
+                    st.dataframe(df_focus.style.apply(style_jard_rows, axis=1), use_container_width=True)
+                    st.markdown("<p style='color: #718096; font-size: 13px; margin-top: -10px;'>💡 تم إبراز السطر الفعلي لهذه القطعة فقط في الأعلى لسهولة التحقق الحركي، مع بقاء الجدول العام بالأسفل كاملاً.</p>", unsafe_allow_html=True)
+                    st.write("---")
 
-                    # --- لوحة التصحيح السريع لقراءات الكاميرا الزائدة للموظف ---         
+            # 3. التصفية تحدث للجدول الأساسي بالأسفل فقط وفقط إذا قام الموظف بالبحث يدوياً
+            if search_query:
+                df_display = df_final_jard[
+                    df_final_jard["كود المنتج"].astype(str).str.contains(search_query, na=False) |
+                    df_final_jard["اللون"].astype(str).str.contains(search_query, na=False) |
+                    df_final_jard["القياس"].astype(str).str.contains(search_query, na=False)
+                ]
+
+            # 4. عرض الجدول القياسي الكامل بكافة أسطره الـ 5640 وبترتيبه الأصلي الثابت دون أي تصفية عند القراءة الآلية
+            st.write(f"📊 **جدول مقارنة الجرد الحي العام (إجمالي الأسطر: {len(df_display)}):**")
+            st.dataframe(df_display.style.apply(style_jard_rows, axis=1), use_container_width=True)
+
+            # --- [التعديل المطور]: لوحة التصحيح العامة لكافة أنواع القراءات (قارئ، يدوي، كاميرا) ---
             st.write("---")
             with st.form("inventory_manual_correction"):
-                st.markdown("### 🛠️ لوحة التحكم وتصحيح قراءات الكاميرا المكررة")
-                st.write("إذا قامت الكاميرا بتكرار القراءة بالخطأ، أدخل الباركود الكامل هنا لتعديله أو حذفه:")
+                st.markdown("### 🛠️ لوحة التحكم وتصحيح القراءات العامة")
+                st.write("إذا تم تسجيل قراءة بالخطأ (عبر القارئ، الإدخال اليدوي، أو الكاميرا)، أدخل الباركود هنا لتعديله أو حذفه:")
                 
-                fix_barcode = st.text_input("📝 أدخل الباركود الكامل للقطعة (المكتوب في الكاميرا):").strip().upper()
+                fix_barcode = st.text_input("📝 أدخل الباركود الكامل للقطعة المراد تصحيحها:").strip().upper()
                 fix_action = st.radio("⚡ نوع الإجراء المطلوب:", ["تعديل الكمية المقروءة بالكامل", "حذف قراءات هذا الباركود نهائياً"], horizontal=True)
-                fix_qty = st.number_input("🔢 الكمية الصحيحة الفعلية الصادرة من الكاميرا:", min_value=1, value=1, step=1)
+                fix_qty = st.number_input("🔢 الكمية الصحيحة الفعلية الصادرة:", min_value=1, value=1, step=1)
                 
                 submit_fix = st.form_submit_button("💾 تطبيق التصحيح فوراً وتحديث ملف الأمان")
                 
@@ -329,16 +398,11 @@ if st.session_state.user_role == "inventory":
                         st.error("الرجاء إدخال الباركود المراد تصحيحه أولاً!")
                     else:
                         import os, json
-                        current_scans = st.session_state.scanned_barcodes
-                        if os.path.exists("jard_backup.json"):
-                            try:
-                                with open("jard_backup.json", "r") as f:
-                                    current_scans = json.load(f)
-                            except:
-                                pass
+                        # استخدام المخزن المحلي المطور لضمان تعديل القراءات الحية فوراً
+                        current_scans = st.session_state.local_scans
                         
                         if fix_barcode not in current_scans:
-                            st.warning(f"الباراكود '{fix_barcode}' غير موجود في قراءات الجرد الحالية الممسوحة للكاميرا.")
+                            st.warning(f"الباركود '{fix_barcode}' غير موجود في قراءات الجرد الحالية الممسوحة.")
                         else:
                             if fix_action == "تعديل الكمية المقروءة بالكامل":
                                 current_scans[fix_barcode]["qty"] = fix_qty
@@ -347,11 +411,13 @@ if st.session_state.user_role == "inventory":
                                 del current_scans[fix_barcode]
                                 st.success(f"🗑️ تم حذف الباركود {fix_barcode} نهائياً من الجرد!")
                             
-                            st.session_state.scanned_barcodes = current_scans
+                            # حفظ التعديلات في جلسة العمل وفي ملف النسخة الاحتياطية لضمان المزامنة
+                            st.session_state.local_scans = current_scans
                             with open("jard_backup.json", "w") as f:
                                 json.dump(current_scans, f)
+                                
                             st.session_state.last_recorded_barcode = None    
-                            st.rerun()                           
+                            st.rerun()
 
             # 1. زر إبلاغ البرنامج بانتهاء عملية الجرد بالكامل
             if not st.session_state.jard_completed:
@@ -417,8 +483,26 @@ if st.session_state.user_role == "inventory":
 
     st.stop()
 
-st.markdown("<h1 style='text-align: center; color: #1A365D;'>Torino Moda Style</h1>", unsafe_allow_html=True)
+# عرض اللوغو بخلفيته البيضاء داخل إطار مستطيل متناسق لواجهة المبيعات
+col_sales_logo1, col_sales_logo2, col_sales_logo3 = st.columns([1, 2, 1])
+with col_sales_logo2:
+    if os.path.exists("logo.jpg"):
+        import base64
+        with open("logo.jpg", "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+        # نفس الإطار المستطيل الأبيض المحمي والمحتوي بالكامل على الشعار لتوحيد الواجهتين
+        st.markdown(
+            f'<div style="text-align: center; display: flex; justify-content: center; align-items: center; background-color: #FFFFFF; width: 100%; max-width: 420px; height: 160px; margin: 0 auto; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); overflow: hidden;">'
+            f'<img src="data:image/jpeg;base64,{encoded_string}" style="width: 90%; height: 90%; object-fit: contain;">'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("⚠️ يرجى التأكد من تسمية ملف اللوغو logo.jpg ووضعه في المجلد الرئيسي")
+
+st.markdown("<h1 style='text-align: center; color: #1A365D; margin-top: 15px;'>Torino Moda Style</h1>", unsafe_allow_html=True)
 st.markdown("<h4 style='text-align: center; color: #D69E2E;'>نظام تحليل المبيعات الذكي وتوليد التقارير المصورة تلقائياً</h4>", unsafe_allow_html=True)
+
 st.write("---")
 
 branch = st.selectbox("🌍 اختر فرع العملة المطلوب العمل عليه:", [
