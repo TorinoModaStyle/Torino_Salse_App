@@ -357,24 +357,33 @@ if st.session_state.user_role == "inventory":
             st.write(f"📊 **جدول مقارنة الجرد الحي العام (إجمالي الأسطر: {len(df_display)}):**")
             st.dataframe(df_display.style.apply(style_jard_rows, axis=1), use_container_width=True)
 
-            # لوحة التصحيح العامة المحدثة والمحمية ضد أي إدخال خاطئ لكافة الحالات
+            # --- [لوحة التصحيح العامة المحمية والمضمونة 100% من الأخطاء] ---
             with st.form("inventory_manual_correction"):
                 st.markdown("### 🛠️ لوحة التحكم وتصحيح القراءات العامة")
-                fix_barcode = st.text_input("📝 أدخل الباركود الكامل للقطعة المراد تصحيحه:").strip().upper()
+                st.write("إذا تم تسجيل قراءة بالخطأ، أدخل الباركود هنا لتعديله أو حذفه:")
+                
+                fix_barcode = st.text_input("📝 أدخل الباركود الكامل للقطعة المراد تصحيحها:").strip().upper()
                 fix_action = st.radio("⚡ نوع الإجراء المطلوب:", ["تعديل الكمية المقروءة بالكامل", "حذف قراءات هذا الباركود نهائياً"], horizontal=True)
                 fix_qty = st.number_input("🔢 الكمية الصحيحة الفعلية الصادرة:", min_value=1, value=1, step=1)
-                submit_fix = st.form_submit_button("💾 تطبيق التصحيح فوراً وتحديث ملف الأمان")
+                
+                submit_fix = st.form_submit_button("💾 تطبيق التصحيح فوراً")
                 
                 if submit_fix and fix_barcode:
+                    clean_fix_b = str(fix_barcode).replace(" ", "").strip().upper()
                     current_scans = st.session_state.local_scans
-                    if fix_barcode in current_scans:
+                    
+                    if clean_fix_b in current_scans:
                         if fix_action == "تعديل الكمية المقروءة بالكامل":
-                            current_scans[fix_barcode]["qty"] = fix_qty
+                            current_scans[clean_fix_b]["qty"] = fix_qty
                         elif fix_action == "حذف قراءات هذا الباركود نهائياً":
-                            del current_scans[fix_barcode]
+                            del current_scans[clean_fix_b]
+                            
                         st.session_state.local_scans = current_scans
                         st.session_state.last_recorded_barcode = None
+                        st.success("✅ تم تطبيق التصحيح بنجاح!")
                         st.rerun()
+                    else:
+                        st.warning("⚠️ هذا الباركود غير موجود في قراءات الجرد الحالية.")
 
             # 1. زر إبلاغ البرنامج بانتهاء عملية الجرد بالكامل
             if not st.session_state.jard_completed:
