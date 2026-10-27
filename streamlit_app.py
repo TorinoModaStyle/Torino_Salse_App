@@ -332,16 +332,11 @@ if st.session_state.user_role == "inventory":
             # [اللوحة العلوية المنفردة والمطابقة التامة 100% للقطعة الممسوحة حالياً]
             if "local_scans" in st.session_state and st.session_state.local_scans and not search_query:
                 last_scanned_barcode = list(st.session_state.local_scans.keys())[-1]
-                last_b_len = len(last_scanned_barcode)
-                last_b_code = str(last_scanned_barcode)[0:6].strip().upper()
-                last_b_color = "BLACK"
-                last_b_size = "0"
-                if last_b_len >= 8:
-                    raw_col = color_mapping.get(last_scanned_barcode[6:8], "رمز لون غير معروف")
-                    last_b_color = str(raw_col).strip().upper()
-                if last_b_len == 10:
-                    last_b_size = last_scanned_barcode[8:10].strip()
-                    if last_b_size.startswith("0") and len(last_b_size) > 1: last_b_size = last_b_size[1:]
+                # جلب البيانات النظيفة والمفككة مسبقاً والمخزنة داخل القاموس بأمان نتيجة للضرب بالقارئ أو الكاميرا
+                last_info = st.session_state.local_scans[last_scanned_barcode]
+                last_b_code = str(last_info["code"]).strip().upper()
+                last_b_color = str(last_info["color"]).strip().upper()
+                last_b_size = str(last_info["size"]).strip().upper()
 
                 df_focus = df_final_jard[
                     ((df_final_jard["كود المنتج"] == last_b_code) & (df_final_jard["اللون"] == last_b_color) & (df_final_jard["القياس"] == last_b_size)) |
