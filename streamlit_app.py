@@ -124,7 +124,7 @@ if st.session_state.user_role == "inventory":
             def process_and_clear():
                 raw_barcode = st.session_state.barcode_scan_key or st.session_state.barcode_manual_key
                 if raw_barcode:
-                    barcode = str(raw_barcode).strip()
+                    barcode = str(raw_barcode).replace(" ", "").strip().upper()
                     b_len = len(barcode)
                     
                     if b_len in [6,8,10]:
