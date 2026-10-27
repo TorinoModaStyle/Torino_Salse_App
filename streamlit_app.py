@@ -211,7 +211,7 @@ if st.session_state.user_role == "inventory":
                 st.text_input("🤖 مسح تلقائي (ضع المؤشر هنا واستخدم القارئ):", key="barcode_scan_key", on_change=process_and_clear)
             with col2:
                 st.text_input("✍️ إدخال يدوي (اكتب الباركود واضغط Enter):", key="barcode_manual_key", on_change=process_and_clear)
-            # تجميع القراءات الحالية وحساب إجمالي كمياتها لكل باركود بدقة لمنع تكرار السطور بالجدول
+            # --- [تعديل حاسم: المطابقة الصارمة ثنائية الأبعاد لمنع الأخطاء] ---
             scanned_totals = {}
             for barcode, info in st.session_state.local_scans.items():
                 b_code = str(info["code"]).strip().upper()
@@ -219,7 +219,10 @@ if st.session_state.user_role == "inventory":
                 b_size = str(info["size"]).strip().upper()
                 qty = info["qty"]
                 
-                key = (b_code, b_color, b_size)
+                # حساب الطول الحقيقي النظيف للباركود لمعرفة نوعه (6، 8، أو 10)
+                b_len = len(str(barcode).replace(" ", "").strip())
+                
+                key = (b_code, b_color, b_size, b_len)
                 if key in scanned_totals:
                     scanned_totals[key]["qty"] += qty
                 else:
@@ -227,31 +230,72 @@ if st.session_state.user_role == "inventory":
 
             matched_keys = set()
             jard_data = []
-            
-            # 1. المرور أولاً على ملف الإكسل الأصلي وإنزال الكميات المجمعة أمامه (سطر بسطر دون أي تكرار)
+
+            # 1. المرور أولاً على ملف الإكسل الأصلي والمطابقة ثنائية الأبعاد (الطول + البيانات)
             for idx, row in df_inventory.iterrows():
                 orig_code = str(row["كود المنتج"]).strip().upper()
-                orig_color = str(row["اللون"]).strip().upper()
-                orig_size = str(row["القياس"]).strip().upper()
+                
+                # فحص طبيعة سطر الإكسل (هل يحتوي على لون أو مقاس لمعرفة طوله الأصلي المعرّف)
+                orig_color = str(row["اللون"]).strip().upper() if not pd.isna(row["اللون"]) else ""
+                orig_size = str(row["القياس"]).strip().upper() if not pd.isna(row["القياس"]) else ""
                 if orig_size.endswith(".0"):
                     orig_size = orig_size[:-2]
-                orig_qty = int(row["الكمية"]) if not pd.isna(row["الكمية"]) else 0
                 
-                excel_key = (orig_code, orig_color, orig_size)
+                # تحديد طول السطر المعرّف في الإكسل برمجياً
+                excel_row_len = 6
+                if orig_color and orig_color != "رمز لون غير معروف" and orig_color != "NAN":
+                    excel_row_len = 8
+                if orig_size and orig_size != "0" and orig_size != "NAN":
+                    excel_row_len = 10
+                    
+                orig_qty = int(row["الكمية"]) if not pd.isna(row["الكمية"]) else 0
                 scanned_qty = 0
-                if excel_key in scanned_totals:
-                    scanned_qty = scanned_totals[excel_key]["qty"]
-                    matched_keys.add(excel_key)
+                
+                # مطابقة القراءات مع سطر الإكسل الحالي بشرط تطابق الطول والبيانات معاً
+                for s_key, info in scanned_totals.items():
+                    b_code, b_color, b_size, b_len = s_key
+                    
+                    is_match = False
+                    # لا يجلس الباركود بجانب أخته إلا إذا كان يطابق طول السطر الأصلي في الإكسل والبيانات 100%
+                    if b_len == excel_row_len and b_len == 10 and b_code == orig_code and b_color == orig_color and b_size == orig_size:
+                        is_match = True
+                    elif b_len == excel_row_len and b_len == 8 and b_code == orig_code and b_color == orig_color:
+                        is_match = True
+                    elif b_len == excel_row_len and b_len == 6 and b_code == orig_code:
+                        is_match = True
+                        
+                    if is_match:
+                        scanned_qty += info["qty"]
+                        matched_keys.add(s_key)
                 
                 diff = scanned_qty - orig_qty
                 jard_data.append({
-                    "كود المنتج": orig_code, "اللون": orig_color, "القياس": orig_size, "الكمية": orig_qty,
+                    "كود المنتج": orig_code, "اللون": orig_color if excel_row_len >= 8 else "", "القياس": orig_size if excel_row_len == 10 else "", "الكمية": orig_qty,
                     "كود المنتج_جديد": orig_code if scanned_qty > 0 else "",
-                    "اللون_جديد": orig_color if scanned_qty > 0 else "",
-                    "القياس_جديد": orig_size if scanned_qty > 0 else "",
+                    "اللون_جديد": orig_color if (scanned_qty > 0 and excel_row_len >= 8) else "",
+                    "القياس_جديد": orig_size if (scanned_qty > 0 and excel_row_len == 10) else "",
                     "الكمية_جديدة": scanned_qty,
                     "الفرق": diff
                 })
+
+            # 2. رصد وإضافة المواد الناقصة بالخطأ أو الزائدة (التي رُفض ربطها لأن طولها أو بياناتها غير متطابقة)
+            for s_key, info in scanned_totals.items():
+                if s_key in matched_keys:
+                    continue
+                
+                b_code, b_color, b_size, b_len = s_key
+                qty = info["qty"]
+                
+                jard_data.append({
+                    "كود المنتج": "", "اللون": "", "القياس": "", "الكمية": 0,
+                    "كود المنتج_جديد": b_code,
+                    "اللون_جديد": b_color if b_len >= 8 else "ناقص/خاطئ",
+                    "القياس_جديد": b_size if b_len == 10 else "ناقص/خاطئ",
+                    "الكمية_جديدة": qty,
+                    "الفرق": qty
+                })
+
+            df_final_jard = pd.DataFrame(jard_data)
 
             # 2. رصد وإضافة المواد الزائدة بالكامل (التي قُرأت بالباركود وغير موجودة نهائياً في الإكسل الأصلي)
             for excel_key, info in scanned_totals.items():
