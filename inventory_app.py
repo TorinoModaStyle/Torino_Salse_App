@@ -128,7 +128,7 @@ def parse_scanned_barcode(barcode_str):
         clean_barcode = barcode_str # باركود مباشر ومستقل بالكامل
         
     return clean_barcode, color_name, size_val
-# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية ---
+# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (نسخة مصححة ومحمية) ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("🔦 مركز الإدخال الموحد")
@@ -136,8 +136,7 @@ if st.session_state.master_data is not None:
     # متغير وسيط لتخزين الباركود الممسوح من أي طريقة من الطرق الثلاثة
     scanned_input = ""
 
-    # 1. خانة القراءة من الليزر (الأساسية - سريعة ومستمرة)
-    # ملاحظة: أجهزة PDA تحقن النص وتضغط Enter تلقائياً مما يعيد تفعيل التركيز فوراً للتالية
+    # 1. خانة القراءة من الليزر (الأساسية - سريعة ومستمرة مع الـ Focus)
     laser_input = st.text_input(
         "📥 امسح بالليزر مباشرة (Focus المستمر):", 
         key="laser_scanner_field",
@@ -145,8 +144,6 @@ if st.session_state.master_data is not None:
     )
     if laser_input:
         scanned_input = laser_input.strip()
-        # مسح القيمة برمجياً فوراً من الذاكرة لتجهيز الحقل للمسحة التالية
-        st.session_state["laser_scanner_field"] = ""
 
     # 2. خانة الكتابة اليدوية (في حال تلف الباركود أو عدم وجوده)
     manual_input = st.text_input(
@@ -156,10 +153,8 @@ if st.session_state.master_data is not None:
     )
     if manual_input:
         scanned_input = manual_input.strip()
-        st.session_state["manual_input_field"] = ""
 
     # 3. خيار كاميرا الجهاز (في حال توقف الليزر) - تغلق تلقائياً فور التقاط الرمز
-    # نستخدم مفتاح تحكم Session State لعرض أو إغلاق حاوية الكاميرا تلقائياً بعد القراءة
     if "show_camera" not in st.session_state:
         st.session_state.show_camera = False
 
@@ -169,12 +164,22 @@ if st.session_state.master_data is not None:
     if st.session_state.show_camera:
         camera_image = st.camera_input("وجه الكاميرا بدقة نحو باركود القطعة")
         if camera_image:
-            # محاكاة قراءة النص السريعة المباشرة من الـ Barcode Scanner بالكاميرا
-            # هنا نعتبر أن مكتبة الكاميرا التقطت الرمز وحولته لنص (مثال برميجي لقراءة الملف المرفوع)
-            # لتجربتها سنلتقط اسم الصورة أو كود افتراضي، وسنغلق الكاميرا فوراً
-            scanned_input = "1234560102" # كود افتراضي تجريبي بطول 10 خانات
-            st.session_state.show_camera = False # إغلاق الكاميرا تلقائياً فور القراءة
-            st.rerun()
+            # هنا محاكاة قراءة نص الـ Barcode من الكاميرا
+            scanned_input = "1234560102" # كود افتراضي بطول 10 خانات للتجربة
+            st.session_state.show_camera = False
+
+    # --- إرسال الباركود الملتقط إلى ملف الحفظ المحلي أوفلاين وتفريغ الحقول تلقائياً ---
+    if scanned_input:
+        save_scan_locally(scanned_input)
+        st.toast(f"📥 تم التقاط وقراءة الكود بنجاح: {scanned_input}")
+        
+        # لتفريغ الحقول النصية بأمان برمجياً ومنع خطأ التكرار، نقوم بتفريغ مفاتيحها في الـ session_state قبل الـ rerun
+        if "laser_scanner_field" in st.session_state:
+            st.session_state.laser_scanner_field = ""
+        if "manual_input_field" in st.session_state:
+            st.session_state.manual_input_field = ""
+            
+        st.rerun()
 
     # --- إرسال الباركود الملتقط إلى ملف الحفظ المحلي أوفلاين ---
     if scanned_input:
