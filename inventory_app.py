@@ -343,18 +343,19 @@ if st.session_state.master_data is not None:
 
     st.dataframe(df_final.style.apply(style_jard_rows, axis=1), use_container_width=True)
 
-    # وضع فاصل جمالي وأزرار التحكم بالبيانات أوفلاين
+    # وضع فاصل جمالي وأزرار التحكم بالبيانات أوفلاين (تظهر مرة واحدة فقط في نهاية الملف)
     st.markdown("---")
     col_control1, col_control2 = st.columns(2)
     
     with col_control1:
-        if st.button("⚡ تفعيل المزامنة اليدوية ودمج الجرد السحابي", type="primary", use_container_width=True):
+        # هذا الزر المحمي الذي يرسل ويجمع تراكمياً فقط عند الضغط عليه يدوياً
+        if st.button("⚡ تفعيل المزامنة اليدوية ودمج الجرد السحابي", type="primary", use_container_width=True, key="final_sync_manual_btn"):
             sync_data_to_server()
             st.rerun()
             
     with col_control2:
-        if st.button("🗑️ مسح قراءات الجرد الحالية والبدء من جديد", type="secondary", use_container_width=True):
-            # حذف كافة ملفات الحفظ بالهاتف لتصفير العداد والجدول بالكامل
+        # زر التصفير والبدء من جديد المربوط بمفتاح فريد لمنع خطأ الـ Duplicate
+        if st.button("🗑️ مسح قراءات الجرد الحالية والبدء من جديد", type="secondary", use_container_width=True, key="final_reset_jard_btn"):
             if os.path.exists(LOCAL_JARD_FILE):
                 os.remove(LOCAL_JARD_FILE)
             if os.path.exists(ARCHIVE_JARD_FILE):
@@ -362,15 +363,8 @@ if st.session_state.master_data is not None:
             st.toast("🔄 تم تصفير كافة قراءات الجرد المحلي، يمكنك البدء من جديد الآن!")
             st.rerun()
 
-    with col_control2:
-        # الكبسة الجديدة: تتيح للموظف تصفير الجرد المحلي والبدء من جديد عند الحاجة
-        if st.button("🗑️ مسح قراءات الجرد الحالية والبدء من جديد", type="secondary", use_container_width=True):
-            if os.path.exists(LOCAL_JARD_FILE):
-                os.remove(LOCAL_JARD_FILE) # حذف ملف الحفظ المحلي بالهاتف لتبدأ من الصفر
-                st.toast("🔄 تم تصفير قراءات الجرد المحلي، يمكنك البدء من جديد الآن!")
-                st.rerun()
-            else:
-                st.info("ℹ️ جدول الجرد فارغ بالفعل وجاهز لقراءات جديدة.")
+        else:
+            st.info("ℹ️ جدول الجرد فارغ بالفعل وجاهز لقراءات جديدة.")
 
 # --- القسم السادس: دالة توليد وتصدير ملف الإكسل الملون ذو الصفحتين ---
 def generate_excel_report(df_report):
