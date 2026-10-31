@@ -129,14 +129,14 @@ def parse_scanned_barcode(barcode_str):
         
     return clean_barcode, color_name, size_val
 
-# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (تصفير فوري للحقل اليدوي) ---
+# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (تصفير فوري وتام لجميع الخانات) ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("🔦 مركز الإدخال الموحد")
 
     scanned_input = ""
 
-    # 1. خانة القراءة من الليزر
+    # 1. خانة القراءة من الليزر (الأساسية)
     laser_input = st.text_input(
         "📥 امسح بالليزر مباشرة (Focus المستمر):", 
         key="laser_scanner_field",
@@ -154,7 +154,7 @@ if st.session_state.master_data is not None:
     if manual_input:
         scanned_input = manual_input.strip().upper()
 
-    # 3. خيار كاميرا الجهاز
+    # 3. خيار كاميرا الجهاز البديلة
     if "show_camera" not in st.session_state:
         st.session_state.show_camera = False
 
@@ -164,15 +164,16 @@ if st.session_state.master_data is not None:
     if st.session_state.show_camera:
         camera_image = st.camera_input("وجه الكاميرا بدقة نحو باركود القطعة")
         if camera_image:
-            scanned_input = "1234560102" 
-            st.session_state.show_camera = False
+            # هنا محاكاة قراءة نص الـ Barcode من الكاميرا
+            scanned_input = "1234560102" # كود افتراضي بطول 10 خانات للتجربة
+            st.session_state.show_camera = False # إغلاق الكاميرا تلقائياً فور قراءة الرمز
 
-    # --- إرسال الباركود وتفريغ كافة الحقول فوراً ---
+    # --- معالجة الكود وتأمين التفريغ الفوري والشامل لمنع التكرار ---
     if scanned_input:
         save_scan_locally(scanned_input)
         st.toast(f"📥 تم التقاط وقراءة الكود بنجاح: {scanned_input}")
         
-        # تفريغ الذاكرة لجميع الحقول لجعلها تختفي فوراً وتستعد للمسحة التالية
+        # تفريغ ومسح جذري لكافة الحقول من الذاكرة لكي تختفي الكتابة فوراً وتستعد للمسحة التالية
         if "laser_scanner_field" in st.session_state:
             del st.session_state.laser_scanner_field
         if "manual_input_field" in st.session_state:
