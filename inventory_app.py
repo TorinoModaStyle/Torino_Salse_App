@@ -187,7 +187,8 @@ if st.session_state.master_data is not None:
         save_scan_locally(scanned_input)
         st.toast(f"📥 تم التقاط وقراءة الكود: {scanned_input}")
         st.rerun()
-# --- القسم الخامس: معالجة البيانات، محرك الألوان الشرطي، وعرض الجدول المباشر ---
+        
+# --- القسم الخامس: معالجة البيانات، محرك الألوان الشرطي، وعرض الجدول المباشر (نسخة مطورة للمطابقة) ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("📊 جدول الجرد والمطابقة الفوري")
@@ -211,35 +212,41 @@ if st.session_state.master_data is not None:
     df_parsed_scans = pd.DataFrame(parsed_rows)
 
     # 2. بناء الجدول النهائي للمطابقة
-    # نفترض أن أعمدة الجدول المرفوع هي المرجعية (باركود، لون، قياس، كمية أصلية، اسم المادة)
-    # سنقوم بدمج القراءات مع الجدول الأساسي بناءً على الباركود النظيف واللون والقياس
-    df_master = st.session_state.master_data.copy()
+    df_final = st.session_state.master_data.copy()
     
-    # تأمين وجود أعمدة الجرد الأساسية في الملف المرفوع لمنع الأخطاء البرمجية
-    for col in ["الباركود", "اللون", "القياس", "الكمية_الأصلية"]:
-        if col not in df_master.columns:
-            # محاكاة لأسماء الأعمدة إذا اختلفت
-            df_master[col] = df_master.get(col, 0 if col=="الكمية_الأصلية" else "N/A")
+    # تأمين وتوحيد أسماء أعمدة الجرد الأساسية في الملف المرفوع وتنظيف نصوصها من الفراغات
+    for col in ["الباركود", "اللون", "القياس", "الكمية_الأصلية", "رمز المادة"]:
+        if col not in df_final.columns:
+            df_final[col] = df_final.get(col, 0 if col=="الكمية_الأصلية" else "N/A")
 
-    # دمج كميات الجرد مع الجدول الرئيسي
-    df_final = df_master.copy()
+    # تنظيف وتوحيد نصوص الأعمدة لضمان مطابقة برمجية صحيحة 100%
+    df_final["الباركود"] = df_final["الباركود"].astype(str).str.strip()
+    df_final["اللون"] = df_final["اللون"].astype(str).str.strip()
+    df_final["القياس"] = df_final["القياس"].astype(str).str.strip()
     df_final["الكمية_المجرودة"] = 0
 
-    # تحديث الكميات المجرودة للمواد المتطابقة
+    # ددمج كميات الجرد مع الجدول الرئيسي بناءً على (الباركود، اللون، القياس) فقط واستثناء (رمز المادة)
     for idx, scan in df_parsed_scans.iterrows():
+        target_barcode = str(scan["Clean_Barcode"]).strip()
+        target_color = str(scan["Color"]).strip()
+        target_size = str(scan["Size"]).strip()
+        
+        # قناع المطابقة الثلاثي الصارم
         mask = (
-            (df_final["الباركود"].astype(str) == str(scan["Clean_Barcode"])) & 
-            (df_final["اللون"].astype(str) == str(scan["Color"])) & 
-            (df_final["القياس"].astype(str) == str(scan["Size"]))
+            (df_final["الباركود"] == target_barcode) & 
+            (df_final["اللون"] == target_color) & 
+            (df_final["القياس"] == target_size)
         )
+        
         if mask.any():
             df_final.loc[mask, "الكمية_المجرودة"] += scan["Scanned_Qty"]
         else:
-            # إذا لم يجد المادة (مادة جديدة تماماً أو خاطئة) يتم تجهيزها للإدراج في سطر جديد
+            # في حال عدم تطابق الثلاثية 100%، تنزل في سطر جديد تماماً كأعمدة منفصلة ومستجدة
             new_item = {col: "N/A" for col in df_final.columns}
-            new_item["الباركود"] = scan["Clean_Barcode"]
-            new_item["اللون"] = scan["Color"]
-            new_item["القياس"] = scan["Size"]
+            new_item["الباركود"] = target_barcode
+            new_item["اللون"] = target_color
+            new_item["القياس"] = target_size
+            new_item["رمز المادة"] = "N/A" # يترك فارغاً أو N/A للمواد الجديدة لأن المطابقة حرة
             new_item["الكمية_الأصلية"] = 0
             new_item["الكمية_المجرودة"] = scan["Scanned_Qty"]
             df_final = pd.concat([df_final, pd.DataFrame([new_item])], ignore_index=True)
@@ -249,21 +256,23 @@ if st.session_state.master_data is not None:
     df_final["الكمية_المجرودة"] = pd.to_numeric(df_final["الكمية_المجرودة"], errors="coerce").fillna(0).astype(int)
     df_final["الفرق"] = df_final["الكمية_المجرودة"] - df_final["الكمية_الأصلية"]
 
-    # 3. إعداد أدوات الفلترة والبحث السريع أمام الموظف
+    # 3. إعداد أدوات الفلترة والبحث السريع أمام الموظف (البحث يشمل رمز المادة والباركود واللون)
     col_search1, col_search2 = st.columns(2)
     with col_search1:
-        search_query = st.text_input("🔍 خانة البحث السريع (الباركود، المادة، اللون):", key="table_search_query")
+        search_query = st.text_input("🔍 خانة البحث السريع (رمز المادة، الباركود، اللون):", key="table_search_query")
     with col_search2:
         filter_mode = st.radio(
             "🎛️ وضع العرض المفضّل للجدول:",
             ["عرض الجدول كاملاً", "عرض السطر الأخير المقروء فقط"]
         )
 
-    # تطبيق تصفية البحث السريع
+    # تطبيق تصفية البحث السريع لتشمل رمز المادة كأداة بحث فقط
     if search_query:
+        search_query = search_query.strip()
         df_final = df_final[
-            df_final["الباركود"].astype(str).str.contains(search_query) |
-            df_final["اللون"].astype(str).str.contains(search_query)
+            df_final["الباركود"].astype(str).str.contains(search_query, case=False, na=False) |
+            df_final["اللون"].astype(str).str.contains(search_query, case=False, na=False) |
+            df_final["رمز المادة"].astype(str).str.contains(search_query, case=False, na=False)
         ]
 
     # تطبيق وضع عرض السطر الأخير المقروء فقط
@@ -282,22 +291,18 @@ if st.session_state.master_data is not None:
         jard = row["الكمية_المجرودة"]
         diff = row["الفرق"]
         
-        # في حال عدم قراءة أي شيء من الكمية يبقى السطر لونه أحمر كامل
         if jard == 0 and orig > 0:
-            return ['background-color: #FFCCCC; color: #850000; font-weight: bold'] * len(row) # أحمر غامق كامل
-        # في حال عدم قراءة الكمية كاملة (نقص) يظهر اللون الأحمر الخفيف
+            return ['background-color: #FFCCCC; color: #850000; font-weight: bold'] * len(row)
         elif diff < 0:
-            return ['background-color: #FFE6E6; color: #CC0000'] * len(row) # أحمر
-        # في حال قراءة الكمية زائدة يظهر اللون الأخضر
+            return ['background-color: #FFE6E6; color: #CC0000'] * len(row)
         elif diff > 0:
-            return ['background-color: #E6F9E6; color: #008000; font-weight: bold'] * len(row) # أخضر
-        # في حال التطابق نستخدم اللون الأصفر المريح
+            return ['background-color: #E6F9E6; color: #008000; font-weight: bold'] * len(row)
         elif diff == 0 and jard > 0:
-            return ['background-color: #FFF9E6; color: #997A00'] * len(row) # أصفر
+            return ['background-color: #FFF9E6; color: #997A00'] * len(row)
         
         return [''] * len(row)
 
-    # عرض الجدول منسقاً وملوناً بشكل احترافي صاروخي ومريح للعين على شاشة الهاتف
+    # عرض الجدول المطور
     st.dataframe(df_final.style.apply(style_jard_rows, axis=1), use_container_width=True)
 
     # وضع فاصل جمالي وأزرار التحكم بالبيانات أوفلاين
