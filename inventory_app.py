@@ -12,6 +12,10 @@ LOCAL_JARD_FILE = "local_scanned_jard.csv"
 if 'master_data' not in st.session_state:
     st.session_state.master_data = None
 
+# 2. تهيئة العداد لتغيير مفاتيح الحقول النصية وتصفيرها برمجياً فوراً لمنع تعليق الباركود (السطر المطلوب)
+if 'input_counter' not in st.session_state:
+    st.session_state.input_counter = 0
+
 # 2. دالة ذكية لحفظ كل مسحة باركود فوراً داخل ملف بالهاتف (تضمن أداء أوفلاين 100%)
 def save_scan_locally(barcode):
     if os.path.exists(LOCAL_JARD_FILE):
@@ -129,17 +133,19 @@ def parse_scanned_barcode(barcode_str):
         
     return clean_barcode, color_name, size_val
 
-# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (تصفير فوري وتام لجميع الخانات) ---
+# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (تفريغ قسري لمنع تعليق الباركود والتكرار) ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("🔦 مركز الإدخال الموحد")
 
     scanned_input = ""
+    # دمج العداد الحالي مع اسم المفتاح لإنشاء مفاتيح متغيرة وجديدة مع كل مسحة
+    current_suffix = str(st.session_state.input_counter)
 
     # 1. خانة القراءة من الليزر (الأساسية)
     laser_input = st.text_input(
         "📥 امسح بالليزر مباشرة (Focus المستمر):", 
-        key="laser_scanner_field",
+        key=f"laser_scanner_field_{current_suffix}",
         placeholder="وجه القارئ الليزري واضغط زر الجهاز ليمسح تلقائياً..."
     )
     if laser_input:
@@ -148,7 +154,7 @@ if st.session_state.master_data is not None:
     # 2. خانة الكتابة اليدوية
     manual_input = st.text_input(
         "✏️ الكتابة اليدوية (للكود التالف أو غير الموجود):", 
-        key="manual_input_field",
+        key=f"manual_input_field_{current_suffix}",
         placeholder="اكتب الكود يدوياً هنا ثم اضغط Enter من لوحة المفاتيح..."
     )
     if manual_input:
@@ -164,21 +170,18 @@ if st.session_state.master_data is not None:
     if st.session_state.show_camera:
         camera_image = st.camera_input("وجه الكاميرا بدقة نحو باركود القطعة")
         if camera_image:
-            # هنا محاكاة قراءة نص الـ Barcode من الكاميرا
-            scanned_input = "1234560102" # كود افتراضي بطول 10 خانات للتجربة
-            st.session_state.show_camera = False # إغلاق الكاميرا تلقائياً فور قراءة الرمز
+            scanned_input = "1234560102" # كود افتراضي تجريبي
+            st.session_state.show_camera = False 
 
-    # --- معالجة الكود وتأمين التفريغ الفوري والشامل لمنع التكرار ---
+    # --- معالجة الكود وتحديث العداد للإفراغ الفوري والمباشر للشاشة ---
     if scanned_input:
         save_scan_locally(scanned_input)
         st.toast(f"📥 تم التقاط وقراءة الكود بنجاح: {scanned_input}")
         
-        # تفريغ ومسح جذري لكافة الحقول من الذاكرة لكي تختفي الكتابة فوراً وتستعد للمسحة التالية
-        if "laser_scanner_field" in st.session_state:
-            del st.session_state.laser_scanner_field
-        if "manual_input_field" in st.session_state:
-            del st.session_state.manual_input_field
-            
+        # زيادة العداد بمقدار 1؛ هذا السطر البسيط يقوم بتغيير المفاتيح تماماً للدورة القادمة
+        # مما يجبر المتصفح على مسح النص القديم من الشاشة فوراً وظهور الخانات فارغة تماماً
+        st.session_state.input_counter += 1
+        
         st.rerun()
 
     # --- إرسال الباركود الملتقط إلى ملف الحفظ المحلي أوفلاين ---
