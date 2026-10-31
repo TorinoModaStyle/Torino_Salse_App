@@ -128,7 +128,8 @@ def parse_scanned_barcode(barcode_str):
         clean_barcode = barcode_str # باركود مباشر ومستقل بالكامل
         
     return clean_barcode, color_name, size_val
-# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (نسخة مصححة ومحمية) ---
+
+# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (النسخة النهائية الآمنة) ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("🔦 مركز الإدخال الموحد")
@@ -164,20 +165,20 @@ if st.session_state.master_data is not None:
     if st.session_state.show_camera:
         camera_image = st.camera_input("وجه الكاميرا بدقة نحو باركود القطعة")
         if camera_image:
-            # هنا محاكاة قراءة نص الـ Barcode من الكاميرا
             scanned_input = "1234560102" # كود افتراضي بطول 10 خانات للتجربة
             st.session_state.show_camera = False
 
-    # --- إرسال الباركود الملتقط إلى ملف الحفظ المحلي أوفلاين وتفريغ الحقول تلقائياً ---
+    # --- إرسال الباركود الملتقط إلى ملف الحفظ المحلي أوفلاين ---
     if scanned_input:
         save_scan_locally(scanned_input)
         st.toast(f"📥 تم التقاط وقراءة الكود بنجاح: {scanned_input}")
         
-        # لتفريغ الحقول النصية بأمان برمجياً ومنع خطأ التكرار، نقوم بتفريغ مفاتيحها في الـ session_state قبل الـ rerun
+        # لتفريغ الحقول بأمان دون التسبب في خطأ StreamlitWidgetAlreadyInstantiatedError
+        # نقوم بمسح الحقول من الذاكرة تماماً، وسيقوم الـ rerun بإعادة إنشائها فارغة تلقائياً
         if "laser_scanner_field" in st.session_state:
-            st.session_state.laser_scanner_field = ""
+            del st.session_state.laser_scanner_field
         if "manual_input_field" in st.session_state:
-            st.session_state.manual_input_field = ""
+            del st.session_state.manual_input_field
             
         st.rerun()
 
