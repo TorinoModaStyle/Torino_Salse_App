@@ -105,57 +105,56 @@ COLOR_MAP = {
     "91": "L.GREY", "92": "L.COFFEE", "93": "COLOURFULL", "94": "TIGER", "95": "ZEBRA"
 }
 
-# --- دالة تفكيك الباركود المركّب ديناميكياً ---
+# --- دالة تفكيك الباركود المركّب ديناميكياً (نسخة مطورة للأحرف الكبيرة والفراغات) ---
 def parse_scanned_barcode(barcode_str):
-    barcode_str = str(barcode_str).strip()
+    barcode_str = str(barcode_str).strip().upper() # تحويل الإدخال دائماً لأحرف كبيرة
     length = len(barcode_str)
     
     clean_barcode = ""
-    color_name = "N/A"
-    size_val = "N/A"
+    color_name = "" # الافتراضي فارغ تماماً وليس None
+    size_val = ""   # الافتراضي فارغ تماماً وليس None
     
     if length == 10:
-        clean_barcode = barcode_str[:6] # أول 6 خانات للباركود الأساسي
-        color_code = barcode_str[6:8]   # الخانتان 7 و 8 لرمز اللون
-        size_code = barcode_str[8:10]   # الخانتان 9 و 10 للقياس
-        color_name = COLOR_MAP.get(color_code, f"Unknown ({color_code})")
-        size_val = size_code
+        clean_barcode = barcode_str[:6]
+        color_code = barcode_str[6:8]
+        size_code = barcode_str[8:10]
+        color_name = COLOR_MAP.get(color_code, "").upper()
+        size_val = str(int(size_code)) if size_code.isdigit() else size_code # تنظيف الأصفار الزائدة
     elif length == 8:
         clean_barcode = barcode_str[:6]
         color_code = barcode_str[6:8]
-        color_name = COLOR_MAP.get(color_code, f"Unknown ({color_code})")
+        color_name = COLOR_MAP.get(color_code, "").upper()
     else:
-        clean_barcode = barcode_str # باركود مباشر ومستقل بالكامل
+        clean_barcode = barcode_str
         
     return clean_barcode, color_name, size_val
 
-# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (النسخة النهائية الآمنة) ---
+# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (تصفير فوري للحقل اليدوي) ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("🔦 مركز الإدخال الموحد")
 
-    # متغير وسيط لتخزين الباركود الممسوح من أي طريقة من الطرق الثلاثة
     scanned_input = ""
 
-    # 1. خانة القراءة من الليزر (الأساسية - سريعة ومستمرة مع الـ Focus)
+    # 1. خانة القراءة من الليزر
     laser_input = st.text_input(
         "📥 امسح بالليزر مباشرة (Focus المستمر):", 
         key="laser_scanner_field",
         placeholder="وجه القارئ الليزري واضغط زر الجهاز ليمسح تلقائياً..."
     )
     if laser_input:
-        scanned_input = laser_input.strip()
+        scanned_input = laser_input.strip().upper()
 
-    # 2. خانة الكتابة اليدوية (في حال تلف الباركود أو عدم وجوده)
+    # 2. خانة الكتابة اليدوية
     manual_input = st.text_input(
         "✏️ الكتابة اليدوية (للكود التالف أو غير الموجود):", 
         key="manual_input_field",
         placeholder="اكتب الكود يدوياً هنا ثم اضغط Enter من لوحة المفاتيح..."
     )
     if manual_input:
-        scanned_input = manual_input.strip()
+        scanned_input = manual_input.strip().upper()
 
-    # 3. خيار كاميرا الجهاز (في حال توقف الليزر) - تغلق تلقائياً فور التقاط الرمز
+    # 3. خيار كاميرا الجهاز
     if "show_camera" not in st.session_state:
         st.session_state.show_camera = False
 
@@ -165,16 +164,15 @@ if st.session_state.master_data is not None:
     if st.session_state.show_camera:
         camera_image = st.camera_input("وجه الكاميرا بدقة نحو باركود القطعة")
         if camera_image:
-            scanned_input = "1234560102" # كود افتراضي بطول 10 خانات للتجربة
+            scanned_input = "1234560102" 
             st.session_state.show_camera = False
 
-    # --- إرسال الباركود الملتقط إلى ملف الحفظ المحلي أوفلاين ---
+    # --- إرسال الباركود وتفريغ كافة الحقول فوراً ---
     if scanned_input:
         save_scan_locally(scanned_input)
         st.toast(f"📥 تم التقاط وقراءة الكود بنجاح: {scanned_input}")
         
-        # لتفريغ الحقول بأمان دون التسبب في خطأ StreamlitWidgetAlreadyInstantiatedError
-        # نقوم بمسح الحقول من الذاكرة تماماً، وسيقوم الـ rerun بإعادة إنشائها فارغة تلقائياً
+        # تفريغ الذاكرة لجميع الحقول لجعلها تختفي فوراً وتستعد للمسحة التالية
         if "laser_scanner_field" in st.session_state:
             del st.session_state.laser_scanner_field
         if "manual_input_field" in st.session_state:
@@ -187,19 +185,17 @@ if st.session_state.master_data is not None:
         save_scan_locally(scanned_input)
         st.toast(f"📥 تم التقاط وقراءة الكود: {scanned_input}")
         st.rerun()
-        
-# --- القسم الخامس: معالجة البيانات، محرك الألوان الشرطي، وعرض الجدول المباشر (نسخة مطورة للمطابقة) ---
+
+# --- القسم الخامس: معالجة البيانات، محرك الألوان الشرطي، وعرض الجدول المباشر (إصلاح الفواصل والأحرف) ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("📊 جدول الجرد والمطابقة الفوري")
 
-    # 1. قراءة ملف الجرد المحلي أوفلاين وتجهيزه للدمج والمطابقة
     if os.path.exists(LOCAL_JARD_FILE):
         df_local_scans = pd.read_csv(LOCAL_JARD_FILE)
     else:
         df_local_scans = pd.DataFrame(columns=["barcode", "scanned_qty"])
 
-    # تفكيك كل باركود ممسوح محلياً لتجهيزه للمطابقة الذكية
     parsed_rows = []
     for idx, row in df_local_scans.iterrows():
         b_code, c_name, s_val = parse_scanned_barcode(row["barcode"])
@@ -211,27 +207,33 @@ if st.session_state.master_data is not None:
         })
     df_parsed_scans = pd.DataFrame(parsed_rows)
 
-    # 2. بناء الجدول النهائي للمطابقة
     df_final = st.session_state.master_data.copy()
     
-    # تأمين وتوحيد أسماء أعمدة الجرد الأساسية في الملف المرفوع وتنظيف نصوصها من الفراغات
+    # تنظيف وتأمين الأعمدة وتحويلها إلى نصوص وأحرف كبيرة بدون None أو فواصل
     for col in ["الباركود", "اللون", "القياس", "الكمية_الأصلية", "رمز المادة"]:
         if col not in df_final.columns:
-            df_final[col] = df_final.get(col, 0 if col=="الكمية_الأصلية" else "N/A")
+            df_final[col] = df_final.get(col, 0 if col=="الكمية_الأصلية" else "")
 
-    # تنظيف وتوحيد نصوص الأعمدة لضمان مطابقة برمجية صحيحة 100%
-    df_final["الباركود"] = df_final["الباركود"].astype(str).str.strip()
-    df_final["اللون"] = df_final["اللون"].astype(str).str.strip()
-    df_final["القياس"] = df_final["القياس"].astype(str).str.strip()
+    # تنظيف الفواصل من القياسات في الملف المرفوع (تحويل 38.0 إلى 38)
+    def clean_excel_size(val):
+        val_str = str(val).strip().upper()
+        if val_str.endswith(".0"):
+            val_str = val_str[:-2]
+        if val_str in ["NONE", "NAN", "N/A"]:
+            return ""
+        return val_str
+
+    df_final["الباركود"] = df_final["الباركود"].astype(str).str.strip().str.upper()
+    df_final["اللون"] = df_final["اللون"].astype(str).str.strip().str.upper().replace(["NONE", "NAN", "N/A"], "")
+    df_final["القياس"] = df_final["القياس"].apply(clean_excel_size)
     df_final["الكمية_المجرودة"] = 0
 
-    # ددمج كميات الجرد مع الجدول الرئيسي بناءً على (الباركود، اللون، القياس) فقط واستثناء (رمز المادة)
+    # المطابقة الثلاثية الصارمة المحدثة
     for idx, scan in df_parsed_scans.iterrows():
-        target_barcode = str(scan["Clean_Barcode"]).strip()
-        target_color = str(scan["Color"]).strip()
-        target_size = str(scan["Size"]).strip()
+        target_barcode = str(scan["Clean_Barcode"]).strip().upper()
+        target_color = str(scan["Color"]).strip().upper()
+        target_size = str(scan["Size"]).strip().upper()
         
-        # قناع المطابقة الثلاثي الصارم
         mask = (
             (df_final["الباركود"] == target_barcode) & 
             (df_final["اللون"] == target_color) & 
@@ -241,41 +243,33 @@ if st.session_state.master_data is not None:
         if mask.any():
             df_final.loc[mask, "الكمية_المجرودة"] += scan["Scanned_Qty"]
         else:
-            # في حال عدم تطابق الثلاثية 100%، تنزل في سطر جديد تماماً كأعمدة منفصلة ومستجدة
-            new_item = {col: "N/A" for col in df_final.columns}
+            new_item = {col: "" for col in df_final.columns}
             new_item["الباركود"] = target_barcode
             new_item["اللون"] = target_color
             new_item["القياس"] = target_size
-            new_item["رمز المادة"] = "N/A" # يترك فارغاً أو N/A للمواد الجديدة لأن المطابقة حرة
+            new_item["رمز المادة"] = ""
             new_item["الكمية_الأصلية"] = 0
             new_item["الكمية_المجرودة"] = scan["Scanned_Qty"]
             df_final = pd.concat([df_final, pd.DataFrame([new_item])], ignore_index=True)
 
-    # حساب عامود السادس: الفرق
     df_final["الكمية_الأصلية"] = pd.to_numeric(df_final["الكمية_الأصلية"], errors="coerce").fillna(0).astype(int)
     df_final["الكمية_المجرودة"] = pd.to_numeric(df_final["الكمية_المجرودة"], errors="coerce").fillna(0).astype(int)
     df_final["الفرق"] = df_final["الكمية_المجرودة"] - df_final["الكمية_الأصلية"]
 
-    # 3. إعداد أدوات الفلترة والبحث السريع أمام الموظف (البحث يشمل رمز المادة والباركود واللون)
     col_search1, col_search2 = st.columns(2)
     with col_search1:
         search_query = st.text_input("🔍 خانة البحث السريع (رمز المادة، الباركود، اللون):", key="table_search_query")
     with col_search2:
-        filter_mode = st.radio(
-            "🎛️ وضع العرض المفضّل للجدول:",
-            ["عرض الجدول كاملاً", "عرض السطر الأخير المقروء فقط"]
-        )
+        filter_mode = st.radio("🎛️ وضع العرض المفضّل للجدول:", ["عرض الجدول كاملاً", "عرض السطر الأخير المقروء فقط"])
 
-    # تطبيق تصفية البحث السريع لتشمل رمز المادة كأداة بحث فقط
     if search_query:
-        search_query = search_query.strip()
+        search_query = search_query.strip().upper()
         df_final = df_final[
             df_final["الباركود"].astype(str).str.contains(search_query, case=False, na=False) |
             df_final["اللون"].astype(str).str.contains(search_query, case=False, na=False) |
             df_final["رمز المادة"].astype(str).str.contains(search_query, case=False, na=False)
         ]
 
-    # تطبيق وضع عرض السطر الأخير المقروء فقط
     if filter_mode == "عرض السطر الأخير المقروء فقط" and os.path.exists(LOCAL_JARD_FILE) and len(df_local_scans) > 0:
         last_scanned_raw = str(df_local_scans.iloc[-1]["barcode"])
         last_b, last_c, last_s = parse_scanned_barcode(last_scanned_raw)
@@ -285,12 +279,10 @@ if st.session_state.master_data is not None:
             (df_final["القياس"].astype(str) == last_s)
         ]
 
-    # 4. محرك الألوان الشرطي الخماسي (تلوين الأسطر بالكامل)
     def style_jard_rows(row):
         orig = row["الكمية_الأصلية"]
         jard = row["الكمية_المجرودة"]
         diff = row["الفرق"]
-        
         if jard == 0 and orig > 0:
             return ['background-color: #FFCCCC; color: #850000; font-weight: bold'] * len(row)
         elif diff < 0:
@@ -299,10 +291,8 @@ if st.session_state.master_data is not None:
             return ['background-color: #E6F9E6; color: #008000; font-weight: bold'] * len(row)
         elif diff == 0 and jard > 0:
             return ['background-color: #FFF9E6; color: #997A00'] * len(row)
-        
         return [''] * len(row)
 
-    # عرض الجدول المطور
     st.dataframe(df_final.style.apply(style_jard_rows, axis=1), use_container_width=True)
 
     # وضع فاصل جمالي وأزرار التحكم بالبيانات أوفلاين
