@@ -233,12 +233,12 @@ if st.session_state.master_data is not None:
         st.session_state.input_counter += 1
         st.rerun()
 
-# --- القسم الخامس: معالجة البيانات وبناء الجدول بناءً على كامل أرشيف الموظف الحالي ---
+# --- القسم الخامس: معالجة البيانات وبناء الجدول بناءً على الجرد الشخصي المعزول للموظف فقط ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("📊 جدول الجرد والمطابقة الفوري")
 
-    # القراءة من ملف الأرشيف الكامل لكي يرى الموظف كل ما جرده دون مسح
+    # القراءة حصرياً من ملف أرشيف الموظف المعزول تماماً عن السيرفر وباقي الأطراف أثناء الجرد
     if os.path.exists(ARCHIVE_JARD_FILE):
         df_local_scans = pd.read_csv(ARCHIVE_JARD_FILE)
     else:
@@ -257,17 +257,16 @@ if st.session_state.master_data is not None:
 
     df_final = st.session_state.master_data.copy()
     
-    # تأمين وجود أعمدة الجرد الأساسية في الملف المرفوع
+    # تأمين وتطهير الأعمدة وتحويلها لنصوص وأحرف كبيرة بدون None أو فواصل
     for col in ["الباركود", "اللون", "القياس", "الكمية_الأصلية", "رمز المادة"]:
         if col not in df_final.columns:
             df_final[col] = df_final.get(col, 0 if col=="الكمية_الأصلية" else "")
 
-    # دالة ذكية لتطهير وتنظيف نصوص عامود اللون والقياس من أي كلمات عشوائية مثل None أو Nan
     def clean_excel_text_fields(val):
         val_str = str(val).strip().upper()
-        if val_str.endswith(".0"): # إزالة الفواصل من الأرقام والقياسات
+        if val_str.endswith(".0"):
             val_str = val_str[:-2]
-        if val_str in ["NONE", "NAN", "N/A", "NULL"]: # تحويل الكلمات الزائفة إلى نص فارغ حقيقي
+        if val_str in ["NONE", "NAN", "N/A", "NULL"]:
             return ""
         return val_str
 
@@ -276,7 +275,7 @@ if st.session_state.master_data is not None:
     df_final["القياس"] = df_final["القياس"].apply(clean_excel_text_fields)
     df_final["الكمية_المجرودة"] = 0
 
-    # آلية المطابقة الثلاثية الصارمة والمنظفة بالكامل (الباركود، اللون، القياس)
+    # المطابقة الشخصية فقط للموظف (لا تجلب أي معلومات من الأطراف الأخرى لحظياً)
     for idx, scan in df_parsed_scans.iterrows():
         target_barcode = str(scan["Clean_Barcode"]).strip().upper()
         target_color = str(scan["Color"]).strip().upper()
@@ -318,7 +317,7 @@ if st.session_state.master_data is not None:
             df_final["رمز المادة"].astype(str).str.contains(search_query, case=False, na=False)
         ]
 
-    if filter_mode == "عرض السطر الأخير المقروء فقط" and os.path.exists(LOCAL_JARD_FILE) and len(df_local_scans) > 0:
+    if filter_mode == "عرض السطر الأخير المقروء فقط" and os.path.exists(ARCHIVE_JARD_FILE) and len(df_local_scans) > 0:
         last_scanned_raw = str(df_local_scans.iloc[-1]["barcode"])
         last_b, last_c, last_s = parse_scanned_barcode(last_scanned_raw)
         df_final = df_final[
