@@ -171,34 +171,33 @@ if st.session_state.master_data is not None:
     if manual_input:
         scanned_input = manual_input.strip().upper()
 
-    # 3. خيار كاميرا الجهاز البديلة (نسخة الـ Scanner الذكية مع زر الإلغاء الجانبي)
+    # 3. خيار كاميرا الجهاز البديلة (النسخة المقاومة للحظر وتفتح كاميرا النظام الرسمية)
     if "show_camera" not in st.session_state:
         st.session_state.show_camera = False
 
-    # تصميم أزرار التحكم بالكاميرا بشكل متجاور وأنيق على شاشة الهاتف
     col_cam1, col_cam2 = st.columns(2)
     with col_cam1:
-        if st.button("📷 تشغيل كاميرا الهاتف كبديل", use_container_width=True):
+        if st.button("📷 تشغيل الكاميرا الاحتياطية", use_container_width=True):
             st.session_state.show_camera = True
             st.rerun()
             
     with col_cam2:
-        # زر الإلغاء الجانبي الذي طلبته لإغلاق الكاميرا والعودة للشكل الطبيعي في أي وقت
         if st.button("❌ إلغاء تشغيل الكاميرا", use_container_width=True):
             st.session_state.show_camera = False
             st.rerun()
 
-    # فتح حاوية الكاميرا كـ Scanner تلقائي
+    # تشغيل الكاميرا الآمنة عبر نظام أندرويد
     if st.session_state.show_camera:
-        st.markdown("<p style='color: #E1A73E; text-align: center;'>وجه الكاميرا بدقة وثبات نحو باركود القطعة لتتم قراءته وفصل الكاميرا تلقائياً</p>", unsafe_allow_html=True)
-        camera_image = st.camera_input("Scanner Camera", label_visibility="collapsed")
+        st.markdown("<p style='color: #E1A73E; text-align: center;'>اضغط بالأسفل واختر 'الكاميرا' لالتقاط الباركود فوراً</p>", unsafe_allow_html=True)
         
-        if camera_image:
-            # محاكاة فك الشفرة السريعة فور التقاط الباركود
-            # الكود هنا يعتبر أنه وجد الرمز، وسيقوم بفصل الكاميرا فوراً وتنزل القطعة في مكانها الصحيح
+        # هذا الزر يجبر نظام الأندرويد على فتح الكاميرا الرسمية مباشرة والتقاط الباركود
+        camera_file = st.file_uploader("Capture Barcode", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+        
+        if camera_file is not None:
+            # محاكاة فك الشفرة السريعة فور التقاط الصورة بكاميرا النظام
             scanned_input = "1234560102" # كود افتراضي بطول 10 خانات للتجربة
             
-            # السر في الفصل التلقائي الفوري: تحويل حالة العرض إلى False قبل عمل الـ rerun
+            # الفصل التلقائي الفوري وإغلاق الحاوية بعد القراءة بنجاح
             st.session_state.show_camera = False
 
     # --- معالجة الكود وتحديث العداد للإفراغ الفوري والمباشر للشاشة ---
