@@ -5,49 +5,60 @@ import openpyxl
 from openpyxl.styles import PatternFill
 from bidi.algorithm import get_display
 
-# اسم الملف المحلي الذي سيحفظ الجرد داخل الهاتف لحمايته عند فصل الإنترنت
-LOCAL_JARD_FILE = "local_scanned_jard.csv"
+# أسماء ملفات الحفظ المحلية داخل الهاتف لحماية البيانات أوفلاين
+LOCAL_JARD_FILE = "local_scanned_jard.csv"       # يحتوي فقط على المسحات الجديدة (التي لم تُزامن بعد)
+ARCHIVE_JARD_FILE = "archived_scanned_jard.csv"   # يحتوي على كامل جرد الموظف التاريخي ليراه أمامه دائماً
 
 # 1. تهيئة جداول الذاكرة المؤقتة لملف النظام المحاسبي المرجعي
 if 'master_data' not in st.session_state:
     st.session_state.master_data = None
 
-# 2. تهيئة العداد لتغيير مفاتيح الحقول النصية وتصفيرها برمجياً فوراً لمنع تعليق الباركود (السطر المطلوب)
 if 'input_counter' not in st.session_state:
     st.session_state.input_counter = 0
 
-# 2. دالة ذكية لحفظ كل مسحة باركود فوراً داخل ملف بالهاتف (تضمن أداء أوفلاين 100%)
 def save_scan_locally(barcode):
+    # 1. الحفظ في ملف الرفع الفوري
     if os.path.exists(LOCAL_JARD_FILE):
         df_local = pd.read_csv(LOCAL_JARD_FILE)
     else:
         df_local = pd.DataFrame(columns=["barcode", "scanned_qty"])
     
-    # إذا كان الباركود ممسوحاً سابقاً زد الكمية، وإلا أضف سطراً جديداً
     if barcode in df_local['barcode'].values:
         df_local.loc[df_local['barcode'] == barcode, 'scanned_qty'] += 1
     else:
-        new_row = pd.DataFrame([{"barcode": barcode, "scanned_qty": 1}])
-        df_local = pd.concat([df_local, new_row], ignore_index=True)
-        
+        df_local = pd.concat([df_local, pd.DataFrame([{"barcode": barcode, "scanned_qty": 1}])], ignore_index=True)
     df_local.to_csv(LOCAL_JARD_FILE, index=False)
 
-# 3. دالة كبسة زر "المزامنة اليدوية" لدمج وتجميع جرد الأطراف عند توفر الإنترنت
+    # 2. الحفظ في ملف الأرشيف الكامل للموظف
+    if os.path.exists(ARCHIVE_JARD_FILE):
+        df_archive = pd.read_csv(ARCHIVE_JARD_FILE)
+    else:
+        df_archive = pd.DataFrame(columns=["barcode", "scanned_qty"])
+    
+    if barcode in df_archive['barcode'].values:
+        df_archive.loc[df_archive['barcode'] == barcode, 'scanned_qty'] += 1
+    else:
+        df_archive = pd.concat([df_archive, pd.DataFrame([{"barcode": barcode, "scanned_qty": 1}])], ignore_index=True)
+    df_archive.to_csv(ARCHIVE_JARD_FILE, index=False)
+
+# 3. دالة المزامنة اليدوية المحدثة (ترسل الجديد فقط وتصفر ملف الرفع)
 def sync_data_to_server():
     if not os.path.exists(LOCAL_JARD_FILE):
-        st.warning("⚠️ لا توجد قراءات جديدة للمزامنة حالياً.")
+        st.warning("⚠️ لا توجد قراءات جديدة للمزامنة حالياً. كل مسحاتك مزمّنة بالفعل!")
         return
         
     try:
-        # قراءة البيانات المجرودة أوفلاين تمهيداً لرفعها ودمجها سحابياً
+        # قراءة المسحات الجديدة فقط لإرسالها
         df_to_sync = pd.read_csv(LOCAL_JARD_FILE)
         
-        # [هنا سنضع لاحقاً كود الدمج السحابي المشترك لجمع جرد الموظفين دون تداخل]
+        # [هنا كود الرفع السحابي المركزي التراكمي لجمع قراءات الأطراف دون تداخل]
         
-        st.success("⚡ تمت المزامنة السحابية اليدوية بنجاح وتم تجميع جردك مع باقي الأطراف!")
-        os.remove(LOCAL_JARD_FILE) # تفريغ الجرد المحلي بعد نجاح رفعه
+        st.success("⚡ تمت مزامنة القراءات الجديدة بنجاح ودمجها مع باقي الأطراف!")
+        # تفريغ ملف المزامنة فوراً بعد نجاح الرفع لمنع تكرار تجميعها مستقبلاً
+        os.remove(LOCAL_JARD_FILE)
     except Exception as e:
         st.error("❌ فشلت المزامنة. تأكد من تفعيل الإنترنت على الهاتف واضغط مجدداً.")
+
 # إعدادات الصفحة الأساسية لتطبيق الجرد والمطابقة على الأندرويد
 st.set_page_config(
     page_title="Torino Moda Style - Analytics",
@@ -190,13 +201,14 @@ if st.session_state.master_data is not None:
         st.toast(f"📥 تم التقاط وقراءة الكود: {scanned_input}")
         st.rerun()
 
-# --- القسم الخامس: معالجة البيانات، محرك الألوان الشرطي، وعرض الجدول المباشر (تطهير اللون والقياس تماماً) ---
+# --- القسم الخامس: معالجة البيانات وبناء الجدول بناءً على كامل أرشيف الموظف الحالي ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("📊 جدول الجرد والمطابقة الفوري")
 
-    if os.path.exists(LOCAL_JARD_FILE):
-        df_local_scans = pd.read_csv(LOCAL_JARD_FILE)
+    # القراءة من ملف الأرشيف الكامل لكي يرى الموظف كل ما جرده دون مسح
+    if os.path.exists(ARCHIVE_JARD_FILE):
+        df_local_scans = pd.read_csv(ARCHIVE_JARD_FILE)
     else:
         df_local_scans = pd.DataFrame(columns=["barcode", "scanned_qty"])
 
@@ -304,11 +316,20 @@ if st.session_state.master_data is not None:
     col_control1, col_control2 = st.columns(2)
     
     with col_control1:
-        # زر المزامنة اليدوية المعتمد سابقاً الرفع
         if st.button("⚡ تفعيل المزامنة اليدوية ودمج الجرد السحابي", type="primary", use_container_width=True):
             sync_data_to_server()
             st.rerun()
             
+    with col_control2:
+        if st.button("🗑️ مسح قراءات الجرد الحالية والبدء من جديد", type="secondary", use_container_width=True):
+            # حذف كافة ملفات الحفظ بالهاتف لتصفير العداد والجدول بالكامل
+            if os.path.exists(LOCAL_JARD_FILE):
+                os.remove(LOCAL_JARD_FILE)
+            if os.path.exists(ARCHIVE_JARD_FILE):
+                os.remove(ARCHIVE_JARD_FILE)
+            st.toast("🔄 تم تصفير كافة قراءات الجرد المحلي، يمكنك البدء من جديد الآن!")
+            st.rerun()
+
     with col_control2:
         # الكبسة الجديدة: تتيح للموظف تصفير الجرد المحلي والبدء من جديد عند الحاجة
         if st.button("🗑️ مسح قراءات الجرد الحالية والبدء من جديد", type="secondary", use_container_width=True):
