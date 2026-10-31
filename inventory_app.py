@@ -144,13 +144,12 @@ def parse_scanned_barcode(barcode_str):
         
     return clean_barcode, color_name, size_val
 
-# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (تفريغ قسري لمنع تعليق الباركود والتكرار) ---
+# --- القسم الرابع: واجهات وطرق الإدخال الثلاث الذكية (النسخة الخارقة لكسر حظر الكاميرا) ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("🔦 مركز الإدخال الموحد")
 
     scanned_input = ""
-    # دمج العداد الحالي مع اسم المفتاح لإنشاء مفاتيح متغيرة وجديدة مع كل مسحة
     current_suffix = str(st.session_state.input_counter)
 
     # 1. خانة القراءة من الليزر (الأساسية)
@@ -171,7 +170,7 @@ if st.session_state.master_data is not None:
     if manual_input:
         scanned_input = manual_input.strip().upper()
 
-    # 3. خيار كاميرا الجهاز البديلة (النسخة الأصلية المباشرة داخل الواجهة مع الفصل التلقائي وزر الإلغاء)
+    # 3. خيار كاميرا الجهاز البديلة (ربط الـ key بالعداد لكسر حظر المتصفح التلقائي)
     if "show_camera" not in st.session_state:
         st.session_state.show_camera = False
 
@@ -186,33 +185,25 @@ if st.session_state.master_data is not None:
             st.session_state.show_camera = False
             st.rerun()
 
-    # فتح حاوية الكاميرا المباشرة داخل واجهة التطبيق
+    # فتح حاوية الكاميرا المباشرة المربوطة بالـ Key المتغير
     if st.session_state.show_camera:
         st.markdown("<p style='color: #E1A73E; text-align: center;'>وجه الكاميرا بدقة وثبات نحو باركود القطعة لتتم قراءته وفصل الكاميرا تلقائياً</p>", unsafe_allow_html=True)
-        camera_image = st.camera_input("Scanner Camera", label_visibility="collapsed")
+        
+        # التعديل الذهبي: دمج current_suffix مع المفتاح لكسر تجميد الصلاحية المؤقت في المتصفح
+        camera_image = st.camera_input("Scanner Camera", key=f"camera_input_field_{current_suffix}", label_visibility="collapsed")
         
         if camera_image:
-            # محاكاة فك الشفرة السريعة فور التقاط الباركود لتنزل القطعة في مكانها الصحيح
             scanned_input = "1234560102" # كود افتراضي بطول 10 خانات للتجربة
-            
-            # الفصل التلقائي الفوري وإغلاق حاوية الكاميرا من الواجهة مباشرة بعد القراءة
             st.session_state.show_camera = False
+            # زيادة العداد لتصفير الحقول النصية وتحديث مفتاح الكاميرا للمرة القادمة فوراً
+            st.session_state.input_counter += 1
+            st.rerun()
 
     # --- معالجة الكود وتحديث العداد للإفراغ الفوري والمباشر للشاشة ---
-    if scanned_input:
+    if scanned_input and not st.session_state.show_camera:
         save_scan_locally(scanned_input)
         st.toast(f"📥 تم التقاط وقراءة الكود بنجاح: {scanned_input}")
-        
-        # زيادة العداد بمقدار 1؛ هذا السطر البسيط يقوم بتغيير المفاتيح تماماً للدورة القادمة
-        # مما يجبر المتصفح على مسح النص القديم من الشاشة فوراً وظهور الخانات فارغة تماماً
         st.session_state.input_counter += 1
-        
-        st.rerun()
-
-    # --- إرسال الباركود الملتقط إلى ملف الحفظ المحلي أوفلاين ---
-    if scanned_input:
-        save_scan_locally(scanned_input)
-        st.toast(f"📥 تم التقاط وقراءة الكود: {scanned_input}")
         st.rerun()
 
 # --- القسم الخامس: معالجة البيانات وبناء الجدول بناءً على كامل أرشيف الموظف الحالي ---
