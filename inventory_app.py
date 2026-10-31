@@ -186,7 +186,7 @@ if st.session_state.master_data is not None:
         st.toast(f"📥 تم التقاط وقراءة الكود: {scanned_input}")
         st.rerun()
 
-# --- القسم الخامس: معالجة البيانات، محرك الألوان الشرطي، وعرض الجدول المباشر (إصلاح الفواصل والأحرف) ---
+# --- القسم الخامس: معالجة البيانات، محرك الألوان الشرطي، وعرض الجدول المباشر (تطهير اللون والقياس تماماً) ---
 if st.session_state.master_data is not None:
     st.markdown("---")
     st.subheader("📊 جدول الجرد والمطابقة الفوري")
@@ -209,26 +209,26 @@ if st.session_state.master_data is not None:
 
     df_final = st.session_state.master_data.copy()
     
-    # تنظيف وتأمين الأعمدة وتحويلها إلى نصوص وأحرف كبيرة بدون None أو فواصل
+    # تأمين وجود أعمدة الجرد الأساسية في الملف المرفوع
     for col in ["الباركود", "اللون", "القياس", "الكمية_الأصلية", "رمز المادة"]:
         if col not in df_final.columns:
             df_final[col] = df_final.get(col, 0 if col=="الكمية_الأصلية" else "")
 
-    # تنظيف الفواصل من القياسات في الملف المرفوع (تحويل 38.0 إلى 38)
-    def clean_excel_size(val):
+    # دالة ذكية لتطهير وتنظيف نصوص عامود اللون والقياس من أي كلمات عشوائية مثل None أو Nan
+    def clean_excel_text_fields(val):
         val_str = str(val).strip().upper()
-        if val_str.endswith(".0"):
+        if val_str.endswith(".0"): # إزالة الفواصل من الأرقام والقياسات
             val_str = val_str[:-2]
-        if val_str in ["NONE", "NAN", "N/A"]:
+        if val_str in ["NONE", "NAN", "N/A", "NULL"]: # تحويل الكلمات الزائفة إلى نص فارغ حقيقي
             return ""
         return val_str
 
     df_final["الباركود"] = df_final["الباركود"].astype(str).str.strip().str.upper()
-    df_final["اللون"] = df_final["اللون"].astype(str).str.strip().str.upper().replace(["NONE", "NAN", "N/A"], "")
-    df_final["القياس"] = df_final["القياس"].apply(clean_excel_size)
+    df_final["اللون"] = df_final["اللون"].apply(clean_excel_text_fields)
+    df_final["القياس"] = df_final["القياس"].apply(clean_excel_text_fields)
     df_final["الكمية_المجرودة"] = 0
 
-    # المطابقة الثلاثية الصارمة المحدثة
+    # آلية المطابقة الثلاثية الصارمة والمنظفة بالكامل (الباركود، اللون، القياس)
     for idx, scan in df_parsed_scans.iterrows():
         target_barcode = str(scan["Clean_Barcode"]).strip().upper()
         target_color = str(scan["Color"]).strip().upper()
