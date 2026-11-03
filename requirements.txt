@@ -4,3 +4,4 @@ openpyxl
 arabic-reshaper
 python-bidi
 reportlab
+streamlit-qrcode-scanner
